@@ -11,6 +11,7 @@ export const events = pgTable("events", {
   date: timestamp("date").notNull(),
   location: varchar("location", { length: 255 }),
   organizerId: uuid("organizer_id").references(() => users.id),
+  interests: text("interests").array(), 
   createdAt: timestamp("created_at").defaultNow(),
 });
 

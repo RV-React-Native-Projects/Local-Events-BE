@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import "dotenv/config";
+import * as schema from "../src/db/schema";
 import {
   users,
   accounts,
@@ -13,6 +14,7 @@ import {
   notifications,
   verificationRequests,
 } from "../src/db/schema";
+import { reset } from "drizzle-seed";
 // Simple data generation functions (no external dependencies)
 const generateName = () => {
   const firstNames = [
@@ -222,21 +224,11 @@ const getRandomItems = <T>(array: T[], count: number): T[] => {
 };
 
 async function seed() {
+  await reset(db, schema);
+  console.log("👍 Cleared database");
   console.log("🌱 Starting database seeding...");
 
   try {
-    // Clear existing data (optional - uncomment if you want to start fresh)
-    // await db.delete(eventReviews);
-    // await db.delete(eventParticipants);
-    // await db.delete(groupMembers);
-    // await db.delete(follows);
-    // await db.delete(notifications);
-    // await db.delete(verificationRequests);
-    // await db.delete(events);
-    // await db.delete(groups);
-    // await db.delete(accounts);
-    // await db.delete(users);
-
     // 1. Create Users (20 users)
     console.log("Creating users...");
     const userData = Array.from({ length: 20 }, () => {
@@ -266,6 +258,27 @@ async function seed() {
 
     // 3. Create Events (15 events)
     console.log("Creating events...");
+
+    // Define interest categories as simple strings
+    const interestCategories = [
+      "Music & Audio",
+      "Coffee & Chat",
+      "Arts & Crafts",
+      "Photography",
+      "Books & Poetry",
+      "Games & Sports",
+      "Food & Cooking",
+      "Tech & Innovation",
+      "Fitness & Wellness",
+      "Social Impact",
+      "Music Production",
+      "Business & Career",
+      "Learning & Education",
+      "Outdoor Adventures",
+      "Nightlife & Entertainment",
+      "Community Building",
+    ];
+
     const eventData = Array.from({ length: 15 }, () => ({
       title: generateEventTitle(),
       description: generateEventDescription(),
@@ -276,6 +289,10 @@ async function seed() {
       location: generateLocation(),
       organizerId:
         createdUsers[Math.floor(Math.random() * createdUsers.length)].id,
+      interests: getRandomItems(
+        interestCategories,
+        Math.floor(Math.random() * 3) + 1
+      ), // 1-3 random interests
     }));
 
     const createdEvents = await db.insert(events).values(eventData).returning();

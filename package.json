@@ -7,7 +7,7 @@
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
     "db:reset": "drizzle-kit reset",
-    "db:seed": "bun run ./scripts/seed.ts"
+    "db:seed": "bun run ./scripts/seedV2.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",

@@ -1,6 +1,6 @@
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import {
   getAllEvents,
   getEventById,
@@ -10,14 +10,16 @@ import {
   searchEvents,
   getUpcomingEvents,
   getEventsByLocation,
+  getEventsByInterest,
+  searchEventsByInterests,
   joinEvent,
   leaveEvent,
   isUserParticipating,
   getEventParticipants,
   addEventReview,
   getEventReviews,
-  getEventsByOrganizer
-} from '../db/queries/events';
+  getEventsByOrganizer,
+} from "../db/queries/events";
 
 const events = new Hono();
 
@@ -28,6 +30,7 @@ const createEventSchema = z.object({
   date: z.string().datetime(),
   location: z.string().min(1).max(255),
   organizerId: z.string().uuid(),
+  interests: z.array(z.string()).optional(),
 });
 
 const updateEventSchema = z.object({
@@ -35,17 +38,26 @@ const updateEventSchema = z.object({
   description: z.string().min(1).optional(),
   date: z.string().datetime().optional(),
   location: z.string().min(1).max(255).optional(),
+  interests: z.array(z.string()).optional(),
 });
 
 const searchSchema = z.object({
   q: z.string().min(1),
   page: z.string().transform(Number).pipe(z.number().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional(),
+  limit: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().min(1).max(100))
+    .optional(),
 });
 
 const paginationSchema = z.object({
   page: z.string().transform(Number).pipe(z.number().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional(),
+  limit: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().min(1).max(100))
+    .optional(),
 });
 
 const reviewSchema = z.object({
@@ -54,276 +66,380 @@ const reviewSchema = z.object({
 });
 
 // GET /events - Get all events with pagination
-events.get('/', zValidator('query', paginationSchema), async (c) => {
+events.get("/", zValidator("query", paginationSchema), async (c) => {
   try {
-    const query = c.req.valid('query');
+    const query = c.req.valid("query");
     const page = query.page || 1;
     const limit = query.limit || 10;
     const result = await getAllEvents(page, limit);
-    
+
     return c.json({
       success: true,
       data: result.events,
-      pagination: result.pagination
+      pagination: result.pagination,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch events' }, 500);
+    return c.json({ success: false, error: "Failed to fetch events" }, 500);
   }
 });
 
 // GET /events/search - Search events
-events.get('/search', zValidator('query', searchSchema), async (c) => {
+events.get("/search", zValidator("query", searchSchema), async (c) => {
   try {
-    const query = c.req.valid('query');
+    const query = c.req.valid("query");
     const q = query.q;
     const page = query.page || 1;
     const limit = query.limit || 10;
     const results = await searchEvents(q, page, limit);
-    
+
     return c.json({
       success: true,
       data: results,
-      query: q
+      query: q,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to search events' }, 500);
+    return c.json({ success: false, error: "Failed to search events" }, 500);
   }
 });
 
 // GET /events/upcoming - Get upcoming events
-events.get('/upcoming', zValidator('query', paginationSchema), async (c) => {
+events.get("/upcoming", zValidator("query", paginationSchema), async (c) => {
   try {
-    const query = c.req.valid('query');
+    const query = c.req.valid("query");
     const page = query.page || 1;
     const limit = query.limit || 10;
     const results = await getUpcomingEvents(page, limit);
-    
+
     return c.json({
       success: true,
-      data: results
+      data: results,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch upcoming events' }, 500);
+    return c.json(
+      { success: false, error: "Failed to fetch upcoming events" },
+      500
+    );
   }
 });
 
 // GET /events/location/:location - Get events by location
-events.get('/location/:location', zValidator('query', paginationSchema), async (c) => {
-  try {
-    const location = c.req.param('location');
-    const query = c.req.valid('query');
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const results = await getEventsByLocation(location, page, limit);
-    
-    return c.json({
-      success: true,
-      data: results,
-      location
-    });
-  } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch events by location' }, 500);
+events.get(
+  "/location/:location",
+  zValidator("query", paginationSchema),
+  async (c) => {
+    try {
+      const location = c.req.param("location");
+      const query = c.req.valid("query");
+      const page = query.page || 1;
+      const limit = query.limit || 10;
+      const results = await getEventsByLocation(location, page, limit);
+
+      return c.json({
+        success: true,
+        data: results,
+        location,
+      });
+    } catch (error) {
+      return c.json(
+        { success: false, error: "Failed to fetch events by location" },
+        500
+      );
+    }
   }
-});
+);
+
+// GET /events/interest/:interest - Get events by interest category
+events.get(
+  "/interest/:interest",
+  zValidator("query", paginationSchema),
+  async (c) => {
+    try {
+      const interest = c.req.param("interest");
+      const query = c.req.valid("query");
+      const page = query.page || 1;
+      const limit = query.limit || 10;
+      const results = await getEventsByInterest(interest, page, limit);
+
+      return c.json({
+        success: true,
+        data: results,
+        interest,
+      });
+    } catch (error) {
+      return c.json(
+        { success: false, error: "Failed to fetch events by interest" },
+        500
+      );
+    }
+  }
+);
+
+// GET /events/interests - Search events by multiple interests
+events.get(
+  "/interests",
+  zValidator(
+    "query",
+    z.object({
+      interests: z.string(),
+      page: z.string().transform(Number).pipe(z.number().min(1)).optional(),
+      limit: z
+        .string()
+        .transform(Number)
+        .pipe(z.number().min(1).max(100))
+        .optional(),
+    })
+  ),
+  async (c) => {
+    try {
+      const query = c.req.valid("query");
+      const interests = query.interests.split(",").map((i) => i.trim());
+      const page = query.page || 1;
+      const limit = query.limit || 10;
+      const results = await searchEventsByInterests(interests, page, limit);
+
+      return c.json({
+        success: true,
+        data: results,
+        interests,
+      });
+    } catch (error) {
+      return c.json(
+        { success: false, error: "Failed to fetch events by interests" },
+        500
+      );
+    }
+  }
+);
 
 // GET /events/:id - Get event by ID
-events.get('/:id', async (c) => {
+events.get("/:id", async (c) => {
   try {
-    const eventId = c.req.param('id');
+    const eventId = c.req.param("id");
     const event = await getEventById(eventId);
-    
+
     if (!event) {
-      return c.json({ success: false, error: 'Event not found' }, 404);
+      return c.json({ success: false, error: "Event not found" }, 404);
     }
-    
+
     return c.json({
       success: true,
-      data: event
+      data: event,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch event' }, 500);
+    return c.json({ success: false, error: "Failed to fetch event" }, 500);
   }
 });
 
 // GET /events/:id/participants - Get event participants
-events.get('/:id/participants', zValidator('query', paginationSchema), async (c) => {
-  try {
-    const eventId = c.req.param('id');
-    const query = c.req.valid('query');
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const participants = await getEventParticipants(eventId, page, limit);
-    
-    return c.json({
-      success: true,
-      data: participants
-    });
-  } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch event participants' }, 500);
+events.get(
+  "/:id/participants",
+  zValidator("query", paginationSchema),
+  async (c) => {
+    try {
+      const eventId = c.req.param("id");
+      const query = c.req.valid("query");
+      const page = query.page || 1;
+      const limit = query.limit || 10;
+      const participants = await getEventParticipants(eventId, page, limit);
+
+      return c.json({
+        success: true,
+        data: participants,
+      });
+    } catch (error) {
+      return c.json(
+        { success: false, error: "Failed to fetch event participants" },
+        500
+      );
+    }
   }
-});
+);
 
 // GET /events/:id/reviews - Get event reviews
-events.get('/:id/reviews', zValidator('query', paginationSchema), async (c) => {
+events.get("/:id/reviews", zValidator("query", paginationSchema), async (c) => {
   try {
-    const eventId = c.req.param('id');
-    const query = c.req.valid('query');
+    const eventId = c.req.param("id");
+    const query = c.req.valid("query");
     const page = query.page || 1;
     const limit = query.limit || 10;
     const reviews = await getEventReviews(eventId, page, limit);
-    
+
     return c.json({
       success: true,
-      data: reviews
+      data: reviews,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to fetch event reviews' }, 500);
+    return c.json(
+      { success: false, error: "Failed to fetch event reviews" },
+      500
+    );
   }
 });
 
 // POST /events - Create new event
-events.post('/', zValidator('json', createEventSchema), async (c) => {
+events.post("/", zValidator("json", createEventSchema), async (c) => {
   try {
-    const eventData = c.req.valid('json');
+    const eventData = c.req.valid("json");
     const event = await createEvent({
       ...eventData,
-      date: new Date(eventData.date)
+      date: new Date(eventData.date),
     });
-    
-    return c.json({
-      success: true,
-      data: event
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: event,
+      },
+      201
+    );
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to create event' }, 500);
+    return c.json({ success: false, error: "Failed to create event" }, 500);
   }
 });
 
 // PUT /events/:id - Update event
-events.put('/:id', zValidator('json', updateEventSchema), async (c) => {
+events.put("/:id", zValidator("json", updateEventSchema), async (c) => {
   try {
-    const eventId = c.req.param('id');
-    const updateData = c.req.valid('json');
-    
+    const eventId = c.req.param("id");
+    const updateData = c.req.valid("json");
+
     // Check if event exists
     const existingEvent = await getEventById(eventId);
     if (!existingEvent) {
-      return c.json({ success: false, error: 'Event not found' }, 404);
+      return c.json({ success: false, error: "Event not found" }, 404);
     }
-    
-    const updatedEvent = await updateEvent(eventId, {
-      ...updateData,
-      ...(updateData.date && { date: new Date(updateData.date) })
-    });
-    
+
+    const updatePayload: {
+      title?: string;
+      description?: string;
+      date?: Date;
+      location?: string;
+      interests?: string[];
+    } = {};
+
+    if (updateData.title) updatePayload.title = updateData.title;
+    if (updateData.description)
+      updatePayload.description = updateData.description;
+    if (updateData.date) updatePayload.date = new Date(updateData.date);
+    if (updateData.location) updatePayload.location = updateData.location;
+    if (updateData.interests) updatePayload.interests = updateData.interests;
+
+    const updatedEvent = await updateEvent(eventId, updatePayload);
+
     return c.json({
       success: true,
-      data: updatedEvent
+      data: updatedEvent,
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to update event' }, 500);
+    return c.json({ success: false, error: "Failed to update event" }, 500);
   }
 });
 
 // DELETE /events/:id - Delete event
-events.delete('/:id', async (c) => {
+events.delete("/:id", async (c) => {
   try {
-    const eventId = c.req.param('id');
-    
+    const eventId = c.req.param("id");
+
     // Check if event exists
     const existingEvent = await getEventById(eventId);
     if (!existingEvent) {
-      return c.json({ success: false, error: 'Event not found' }, 404);
+      return c.json({ success: false, error: "Event not found" }, 404);
     }
-    
+
     const deletedEvent = await deleteEvent(eventId);
-    
+
     return c.json({
       success: true,
       data: deletedEvent,
-      message: 'Event deleted successfully'
+      message: "Event deleted successfully",
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to delete event' }, 500);
+    return c.json({ success: false, error: "Failed to delete event" }, 500);
   }
 });
 
 // POST /events/:id/join - Join event
-events.post('/:id/join', async (c) => {
+events.post("/:id/join", async (c) => {
   try {
-    const eventId = c.req.param('id');
+    const eventId = c.req.param("id");
     const { userId } = await c.req.json();
-    
+
     if (!userId) {
-      return c.json({ success: false, error: 'User ID is required' }, 400);
+      return c.json({ success: false, error: "User ID is required" }, 400);
     }
-    
+
     // Check if already participating
     const isParticipating = await isUserParticipating(userId, eventId);
     if (isParticipating) {
-      return c.json({ success: false, error: 'Already participating in this event' }, 400);
+      return c.json(
+        { success: false, error: "Already participating in this event" },
+        400
+      );
     }
-    
+
     const participation = await joinEvent(userId, eventId);
-    
+
     return c.json({
       success: true,
       data: participation,
-      message: 'Successfully joined event'
+      message: "Successfully joined event",
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to join event' }, 500);
+    return c.json({ success: false, error: "Failed to join event" }, 500);
   }
 });
 
 // DELETE /events/:id/leave - Leave event
-events.delete('/:id/leave', async (c) => {
+events.delete("/:id/leave", async (c) => {
   try {
-    const eventId = c.req.param('id');
+    const eventId = c.req.param("id");
     const { userId } = await c.req.json();
-    
+
     if (!userId) {
-      return c.json({ success: false, error: 'User ID is required' }, 400);
+      return c.json({ success: false, error: "User ID is required" }, 400);
     }
-    
+
     const participation = await leaveEvent(userId, eventId);
-    
+
     return c.json({
       success: true,
       data: participation,
-      message: 'Successfully left event'
+      message: "Successfully left event",
     });
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to leave event' }, 500);
+    return c.json({ success: false, error: "Failed to leave event" }, 500);
   }
 });
 
 // POST /events/:id/reviews - Add event review
-events.post('/:id/reviews', zValidator('json', reviewSchema), async (c) => {
+events.post("/:id/reviews", zValidator("json", reviewSchema), async (c) => {
   try {
-    const eventId = c.req.param('id');
-    const reviewData = c.req.valid('json');
+    const eventId = c.req.param("id");
+    const reviewData = c.req.valid("json");
     const { userId } = await c.req.json();
-    
+
     if (!userId) {
-      return c.json({ success: false, error: 'User ID is required' }, 400);
+      return c.json({ success: false, error: "User ID is required" }, 400);
     }
-    
+
     const review = await addEventReview({
       eventId,
       userId,
       rating: reviewData.rating,
-      comment: reviewData.comment
+      comment: reviewData.comment,
     });
-    
-    return c.json({
-      success: true,
-      data: review,
-      message: 'Review added successfully'
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: review,
+        message: "Review added successfully",
+      },
+      201
+    );
   } catch (error) {
-    return c.json({ success: false, error: 'Failed to add review' }, 500);
+    return c.json({ success: false, error: "Failed to add review" }, 500);
   }
 });
 
-export { events }; 
+export { events };
