@@ -246,6 +246,68 @@ export interface GroupsState {
   error: string | null;
   pagination: PaginationResponse;
 }
+
+// Notification Model
+interface Notification {
+  id: string;
+  userId: string;
+  content: string;
+  read: boolean;
+  type:
+    | "event_invite"
+    | "follow"
+    | "group_invite"
+    | "event_reminder"
+    | "general";
+  relatedId?: string;
+  createdAt: string;
+}
+
+interface NotificationsState {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Social Models
+interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+  follower?: User;
+  following?: User;
+}
+
+interface SocialState {
+  followers: Follow[];
+  following: Follow[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Verification Models
+interface VerificationRequest {
+  id: string;
+  userId: string;
+  documentType: string;
+  documentUrl: string;
+  status: "pending" | "approved" | "rejected";
+  submittedAt: string;
+  reviewedAt?: string;
+  notes?: string;
+}
+
+// Group Member Model
+interface GroupMember {
+  id: string;
+  userId: string;
+  groupId: string;
+  role: "admin" | "member";
+  joinedAt: string;
+  user: User;
+}
 ```
 
 ### 2. Constants & Configuration
@@ -475,6 +537,7 @@ import authSlice from "./authSlice";
 import eventsSlice from "./eventsSlice";
 import usersSlice from "./usersSlice";
 import groupsSlice from "./groupsSlice";
+import socialSlice from "./socialSlice";
 import notificationsSlice from "./notificationsSlice";
 
 // Root reducer
@@ -483,6 +546,7 @@ const rootReducer = combineReducers({
   events: eventsSlice,
   users: usersSlice,
   groups: groupsSlice,
+  social: socialSlice,
   notifications: notificationsSlice,
 });
 
@@ -1281,6 +1345,503 @@ const eventsService = {
 export default eventsService;
 ```
 
+### 3. Users Service
+
+```typescript
+// src/services/usersService.ts
+import { AxiosResponse } from "axios";
+import api from "./api";
+import { ApiResponse, User, UserProfile, UpdateUserRequest } from "../types";
+
+const usersService = {
+  // Get all users
+  getUsers: async (
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<UserProfile[]>>> => {
+    return await api.get(`/users?page=${page}&limit=${limit}`);
+  },
+
+  // Search users
+  searchUsers: async (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<UserProfile[]>>> => {
+    return await api.get(
+      `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get user by ID
+  getUserById: async (
+    userId: string
+  ): Promise<AxiosResponse<ApiResponse<UserProfile>>> => {
+    return await api.get(`/users/${userId}`);
+  },
+
+  // Get user events
+  getUserEvents: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Event[]>>> => {
+    return await api.get(`/users/${userId}/events?page=${page}&limit=${limit}`);
+  },
+
+  // Update user profile
+  updateUser: async (
+    userId: string,
+    userData: UpdateUserRequest
+  ): Promise<AxiosResponse<ApiResponse<UserProfile>>> => {
+    return await api.put(`/users/${userId}`, userData);
+  },
+
+  // Delete user account
+  deleteUser: async (
+    userId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/users/${userId}`);
+  },
+};
+
+export default usersService;
+```
+
+### 4. Groups Service
+
+```typescript
+// src/services/groupsService.ts
+import { AxiosResponse } from "axios";
+import api from "./api";
+import { ApiResponse, Group, CreateGroupRequest } from "../types";
+
+interface GroupMember {
+  id: string;
+  userId: string;
+  groupId: string;
+  role: "admin" | "member";
+  joinedAt: string;
+  user: User;
+}
+
+const groupsService = {
+  // Get all groups
+  getGroups: async (
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Group[]>>> => {
+    return await api.get(`/groups?page=${page}&limit=${limit}`);
+  },
+
+  // Search groups
+  searchGroups: async (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Group[]>>> => {
+    return await api.get(
+      `/groups/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get group by ID
+  getGroupById: async (
+    groupId: string
+  ): Promise<AxiosResponse<ApiResponse<Group>>> => {
+    return await api.get(`/groups/${groupId}`);
+  },
+
+  // Create new group
+  createGroup: async (
+    groupData: CreateGroupRequest
+  ): Promise<AxiosResponse<ApiResponse<Group>>> => {
+    return await api.post("/groups", groupData);
+  },
+
+  // Update group
+  updateGroup: async (
+    groupId: string,
+    groupData: Partial<CreateGroupRequest>
+  ): Promise<AxiosResponse<ApiResponse<Group>>> => {
+    return await api.put(`/groups/${groupId}`, groupData);
+  },
+
+  // Delete group
+  deleteGroup: async (
+    groupId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/groups/${groupId}`);
+  },
+
+  // Join group
+  joinGroup: async (
+    groupId: string
+  ): Promise<AxiosResponse<ApiResponse<GroupMember>>> => {
+    return await api.post(`/groups/${groupId}/join`);
+  },
+
+  // Leave group
+  leaveGroup: async (
+    groupId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/groups/${groupId}/leave`);
+  },
+
+  // Get group members
+  getGroupMembers: async (
+    groupId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<GroupMember[]>>> => {
+    return await api.get(
+      `/groups/${groupId}/members?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Remove group member (admin only)
+  removeGroupMember: async (
+    groupId: string,
+    userId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/groups/${groupId}/members/${userId}`);
+  },
+
+  // Update member role (admin only)
+  updateMemberRole: async (
+    groupId: string,
+    userId: string,
+    role: "admin" | "member"
+  ): Promise<AxiosResponse<ApiResponse<GroupMember>>> => {
+    return await api.put(`/groups/${groupId}/members/${userId}`, { role });
+  },
+};
+
+export default groupsService;
+```
+
+### 5. Social Service
+
+```typescript
+// src/services/socialService.ts
+import { AxiosResponse } from "axios";
+import api from "./api";
+import { ApiResponse, User } from "../types";
+
+interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+  follower?: User;
+  following?: User;
+}
+
+interface Review {
+  id: string;
+  eventId: string;
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+const socialService = {
+  // Follow a user
+  followUser: async (
+    followerId: string,
+    followingId: string
+  ): Promise<AxiosResponse<ApiResponse<Follow>>> => {
+    return await api.post("/social/follow", { followerId, followingId });
+  },
+
+  // Unfollow a user
+  unfollowUser: async (
+    followerId: string,
+    followingId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete("/social/unfollow", {
+      data: { followerId, followingId },
+    });
+  },
+
+  // Get followers
+  getFollowers: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Follow[]>>> => {
+    return await api.get(
+      `/social/followers/${userId}?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get following
+  getFollowing: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Follow[]>>> => {
+    return await api.get(
+      `/social/following/${userId}?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Check if following a user
+  checkIfFollowing: async (
+    followerId: string,
+    followingId: string
+  ): Promise<AxiosResponse<ApiResponse<{ isFollowing: boolean }>>> => {
+    return await api.get(`/social/following/${followerId}/${followingId}`);
+  },
+
+  // Add review
+  addReview: async (
+    eventId: string,
+    userId: string,
+    rating: number,
+    comment: string
+  ): Promise<AxiosResponse<ApiResponse<Review>>> => {
+    return await api.post("/social/reviews", {
+      eventId,
+      userId,
+      rating,
+      comment,
+    });
+  },
+
+  // Update review
+  updateReview: async (
+    reviewId: string,
+    rating?: number,
+    comment?: string
+  ): Promise<AxiosResponse<ApiResponse<Review>>> => {
+    return await api.put(`/social/reviews/${reviewId}`, { rating, comment });
+  },
+
+  // Delete review
+  deleteReview: async (
+    reviewId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/social/reviews/${reviewId}`);
+  },
+
+  // Get user reviews
+  getUserReviews: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Review[]>>> => {
+    return await api.get(
+      `/social/reviews/user/${userId}?page=${page}&limit=${limit}`
+    );
+  },
+};
+
+export default socialService;
+```
+
+### 6. Notifications Service
+
+```typescript
+// src/services/notificationsService.ts
+import { AxiosResponse } from "axios";
+import api from "./api";
+import { ApiResponse } from "../types";
+
+interface Notification {
+  id: string;
+  userId: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+}
+
+const notificationsService = {
+  // Get user notifications
+  getUserNotifications: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Notification[]>>> => {
+    return await api.get(
+      `/notifications/user/${userId}?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get unread notifications
+  getUnreadNotifications: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<Notification[]>>> => {
+    return await api.get(
+      `/notifications/user/${userId}/unread?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get notification count (total and unread)
+  getNotificationCount: async (
+    userId: string
+  ): Promise<AxiosResponse<ApiResponse<{ total: number; unread: number }>>> => {
+    return await api.get(`/notifications/user/${userId}/count`);
+  },
+
+  // Create notification
+  createNotification: async (
+    userId: string,
+    content: string,
+    read: boolean = false
+  ): Promise<AxiosResponse<ApiResponse<Notification>>> => {
+    return await api.post("/notifications", { userId, content, read });
+  },
+
+  // Mark notification as read
+  markNotificationRead: async (
+    notificationId: string
+  ): Promise<AxiosResponse<ApiResponse<Notification>>> => {
+    return await api.put(`/notifications/${notificationId}/read`);
+  },
+
+  // Mark all notifications as read
+  markAllNotificationsRead: async (
+    userId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.put(`/notifications/user/${userId}/read-all`);
+  },
+
+  // Delete notification
+  deleteNotification: async (
+    notificationId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/notifications/${notificationId}`);
+  },
+};
+
+export default notificationsService;
+```
+
+### 7. Verification Service
+
+```typescript
+// src/services/verificationService.ts
+import { AxiosResponse } from "axios";
+import api from "./api";
+import { ApiResponse } from "../types";
+
+interface VerificationRequest {
+  id: string;
+  userId: string;
+  documentUrl: string;
+  notes?: string;
+  status: "pending" | "approved" | "rejected";
+  reviewedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const verificationService = {
+  // Get all verification requests (admin only)
+  getAllVerificationRequests: async (
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest[]>>> => {
+    return await api.get(`/verification?page=${page}&limit=${limit}`);
+  },
+
+  // Get pending verification requests
+  getPendingVerificationRequests: async (
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest[]>>> => {
+    return await api.get(`/verification/pending?page=${page}&limit=${limit}`);
+  },
+
+  // Get verification requests by status
+  getVerificationRequestsByStatus: async (
+    status: "pending" | "approved" | "rejected",
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest[]>>> => {
+    return await api.get(
+      `/verification/status/${status}?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Get verification request by ID
+  getVerificationRequestById: async (
+    requestId: string
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest>>> => {
+    return await api.get(`/verification/${requestId}`);
+  },
+
+  // Get user's verification requests
+  getUserVerificationRequests: async (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest[]>>> => {
+    return await api.get(
+      `/verification/user/${userId}?page=${page}&limit=${limit}`
+    );
+  },
+
+  // Create verification request
+  createVerificationRequest: async (
+    userId: string,
+    documentUrl: string,
+    notes?: string
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest>>> => {
+    return await api.post("/verification", { userId, documentUrl, notes });
+  },
+
+  // Update verification request
+  updateVerificationRequest: async (
+    requestId: string,
+    data: {
+      status?: "pending" | "approved" | "rejected";
+      reviewedBy?: string;
+      notes?: string;
+    }
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest>>> => {
+    return await api.put(`/verification/${requestId}`, data);
+  },
+
+  // Approve verification request
+  approveVerificationRequest: async (
+    requestId: string,
+    reviewerId: string,
+    notes?: string
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest>>> => {
+    return await api.put(`/verification/${requestId}/approve`, {
+      reviewerId,
+      notes,
+    });
+  },
+
+  // Reject verification request
+  rejectVerificationRequest: async (
+    requestId: string,
+    reviewerId: string,
+    notes?: string
+  ): Promise<AxiosResponse<ApiResponse<VerificationRequest>>> => {
+    return await api.put(`/verification/${requestId}/reject`, {
+      reviewerId,
+      notes,
+    });
+  },
+
+  // Delete verification request
+  deleteVerificationRequest: async (
+    requestId: string
+  ): Promise<AxiosResponse<ApiResponse<null>>> => {
+    return await api.delete(`/verification/${requestId}`);
+  },
+};
+
+export default verificationService;
+```
+
 ---
 
 ## 🪝 React Hooks
@@ -1519,6 +2080,1176 @@ export const useEvents = (): UseEventsReturn => {
     clearSearchResults: clearSearch,
   };
 };
+```
+
+### 3. Users Hook
+
+```typescript
+// src/hooks/useUsers.ts
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
+import {
+  fetchUsers,
+  searchUsers,
+  fetchUserById,
+  updateUser,
+  deleteUser,
+  clearError,
+  clearCurrentUser,
+} from "../store/usersSlice";
+import { UserProfile, UpdateUserRequest } from "../types";
+
+interface UseUsersReturn {
+  users: UserProfile[];
+  currentUser: UserProfile | null;
+  isLoading: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+  error: string | null;
+  getUsers: (page?: number, limit?: number) => Promise<any>;
+  searchUsers: (query: string, page?: number, limit?: number) => Promise<any>;
+  getUserById: (userId: string) => Promise<any>;
+  updateUser: (userId: string, userData: UpdateUserRequest) => Promise<any>;
+  deleteUser: (userId: string) => Promise<any>;
+  clearError: () => void;
+  clearCurrentUser: () => void;
+}
+
+export const useUsers = (): UseUsersReturn => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { users, currentUser, isLoading, isUpdating, isDeleting, error } =
+    useSelector((state: RootState) => state.users);
+
+  const getUsersHandler = (page: number = 1, limit: number = 10) => {
+    return dispatch(fetchUsers({ page, limit }));
+  };
+
+  const searchUsersHandler = (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ) => {
+    return dispatch(searchUsers({ query, page, limit }));
+  };
+
+  const getUserByIdHandler = (userId: string) => {
+    return dispatch(fetchUserById(userId));
+  };
+
+  const updateUserHandler = (userId: string, userData: UpdateUserRequest) => {
+    return dispatch(updateUser({ userId, userData }));
+  };
+
+  const deleteUserHandler = (userId: string) => {
+    return dispatch(deleteUser(userId));
+  };
+
+  const clearUsersError = (): void => {
+    dispatch(clearError());
+  };
+
+  const clearUser = (): void => {
+    dispatch(clearCurrentUser());
+  };
+
+  return {
+    users,
+    currentUser,
+    isLoading,
+    isUpdating,
+    isDeleting,
+    error,
+    getUsers: getUsersHandler,
+    searchUsers: searchUsersHandler,
+    getUserById: getUserByIdHandler,
+    updateUser: updateUserHandler,
+    deleteUser: deleteUserHandler,
+    clearError: clearUsersError,
+    clearCurrentUser: clearUser,
+  };
+};
+```
+
+### 4. Groups Hook
+
+```typescript
+// src/hooks/useGroups.ts
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
+import {
+  fetchGroups,
+  searchGroups,
+  fetchGroupById,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  joinGroup,
+  leaveGroup,
+  clearError,
+  clearCurrentGroup,
+} from "../store/groupsSlice";
+import { Group, CreateGroupRequest } from "../types";
+
+interface UseGroupsReturn {
+  groups: Group[];
+  currentGroup: Group | null;
+  isLoading: boolean;
+  isCreating: boolean;
+  isUpdating: boolean;
+  isDeleting: boolean;
+  error: string | null;
+  getGroups: (page?: number, limit?: number) => Promise<any>;
+  searchGroups: (query: string, page?: number, limit?: number) => Promise<any>;
+  getGroupById: (groupId: string) => Promise<any>;
+  createGroup: (groupData: CreateGroupRequest) => Promise<any>;
+  updateGroup: (
+    groupId: string,
+    groupData: Partial<CreateGroupRequest>
+  ) => Promise<any>;
+  deleteGroup: (groupId: string) => Promise<any>;
+  joinGroup: (groupId: string) => Promise<any>;
+  leaveGroup: (groupId: string) => Promise<any>;
+  clearError: () => void;
+  clearCurrentGroup: () => void;
+}
+
+export const useGroups = (): UseGroupsReturn => {
+  const dispatch = useDispatch<AppDispatch>();
+  const {
+    groups,
+    currentGroup,
+    isLoading,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    error,
+  } = useSelector((state: RootState) => state.groups);
+
+  const getGroupsHandler = (page: number = 1, limit: number = 10) => {
+    return dispatch(fetchGroups({ page, limit }));
+  };
+
+  const searchGroupsHandler = (
+    query: string,
+    page: number = 1,
+    limit: number = 10
+  ) => {
+    return dispatch(searchGroups({ query, page, limit }));
+  };
+
+  const getGroupByIdHandler = (groupId: string) => {
+    return dispatch(fetchGroupById(groupId));
+  };
+
+  const createGroupHandler = (groupData: CreateGroupRequest) => {
+    return dispatch(createGroup(groupData));
+  };
+
+  const updateGroupHandler = (
+    groupId: string,
+    groupData: Partial<CreateGroupRequest>
+  ) => {
+    return dispatch(updateGroup({ groupId, groupData }));
+  };
+
+  const deleteGroupHandler = (groupId: string) => {
+    return dispatch(deleteGroup(groupId));
+  };
+
+  const joinGroupHandler = (groupId: string) => {
+    return dispatch(joinGroup(groupId));
+  };
+
+  const leaveGroupHandler = (groupId: string) => {
+    return dispatch(leaveGroup(groupId));
+  };
+
+  const clearGroupsError = (): void => {
+    dispatch(clearError());
+  };
+
+  const clearGroup = (): void => {
+    dispatch(clearCurrentGroup());
+  };
+
+  return {
+    groups,
+    currentGroup,
+    isLoading,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    error,
+    getGroups: getGroupsHandler,
+    searchGroups: searchGroupsHandler,
+    getGroupById: getGroupByIdHandler,
+    createGroup: createGroupHandler,
+    updateGroup: updateGroupHandler,
+    deleteGroup: deleteGroupHandler,
+    joinGroup: joinGroupHandler,
+    leaveGroup: leaveGroupHandler,
+    clearError: clearGroupsError,
+    clearCurrentGroup: clearGroup,
+  };
+};
+```
+
+### 5. Social Hook
+
+```typescript
+// src/hooks/useSocial.ts
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
+import {
+  followUser,
+  unfollowUser,
+  fetchFollowers,
+  fetchFollowing,
+  clearError,
+} from "../store/socialSlice";
+
+interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+  follower?: any;
+  following?: any;
+}
+
+interface SocialState {
+  followers: Follow[];
+  following: Follow[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+interface UseSocialReturn {
+  followers: Follow[];
+  following: Follow[];
+  isLoading: boolean;
+  error: string | null;
+  followUser: (userId: string) => Promise<any>;
+  unfollowUser: (userId: string) => Promise<any>;
+  getFollowers: (userId: string, page?: number, limit?: number) => Promise<any>;
+  getFollowing: (userId: string, page?: number, limit?: number) => Promise<any>;
+  clearError: () => void;
+}
+
+export const useSocial = (): UseSocialReturn => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { followers, following, isLoading, error } = useSelector(
+    (state: RootState) => state.social
+  );
+
+  const followUserHandler = (userId: string) => {
+    return dispatch(followUser(userId));
+  };
+
+  const unfollowUserHandler = (userId: string) => {
+    return dispatch(unfollowUser(userId));
+  };
+
+  const getFollowersHandler = (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) => {
+    return dispatch(fetchFollowers({ userId, page, limit }));
+  };
+
+  const getFollowingHandler = (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) => {
+    return dispatch(fetchFollowing({ userId, page, limit }));
+  };
+
+  const clearSocialError = (): void => {
+    dispatch(clearError());
+  };
+
+  return {
+    followers,
+    following,
+    isLoading,
+    error,
+    followUser: followUserHandler,
+    unfollowUser: unfollowUserHandler,
+    getFollowers: getFollowersHandler,
+    getFollowing: getFollowingHandler,
+    clearError: clearSocialError,
+  };
+};
+```
+
+### 6. Notifications Hook
+
+```typescript
+// src/hooks/useNotifications.ts
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  clearError,
+} from "../store/notificationsSlice";
+
+interface Notification {
+  id: string;
+  userId: string;
+  content: string;
+  read: boolean;
+  type: string;
+  relatedId?: string;
+  createdAt: string;
+}
+
+interface UseNotificationsReturn {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
+  getNotifications: (
+    userId: string,
+    page?: number,
+    limit?: number
+  ) => Promise<any>;
+  markAsRead: (notificationId: string) => Promise<any>;
+  markAllAsRead: (userId: string) => Promise<any>;
+  deleteNotification: (notificationId: string) => Promise<any>;
+  clearError: () => void;
+}
+
+export const useNotifications = (): UseNotificationsReturn => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { notifications, unreadCount, isLoading, error } = useSelector(
+    (state: RootState) => state.notifications
+  );
+
+  const getNotificationsHandler = (
+    userId: string,
+    page: number = 1,
+    limit: number = 10
+  ) => {
+    return dispatch(fetchNotifications({ userId, page, limit }));
+  };
+
+  const markAsReadHandler = (notificationId: string) => {
+    return dispatch(markNotificationRead(notificationId));
+  };
+
+  const markAllAsReadHandler = (userId: string) => {
+    return dispatch(markAllNotificationsRead(userId));
+  };
+
+  const deleteNotificationHandler = (notificationId: string) => {
+    return dispatch(deleteNotification(notificationId));
+  };
+
+  const clearNotificationsError = (): void => {
+    dispatch(clearError());
+  };
+
+  return {
+    notifications,
+    unreadCount,
+    isLoading,
+    error,
+    getNotifications: getNotificationsHandler,
+    markAsRead: markAsReadHandler,
+    markAllAsRead: markAllAsReadHandler,
+    deleteNotification: deleteNotificationHandler,
+    clearError: clearNotificationsError,
+  };
+};
+```
+
+---
+
+## 🗄️ Missing Redux Slices
+
+### 4. Users Slice
+
+```typescript
+// src/store/usersSlice.ts
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import usersService from "../services/usersService";
+import {
+  UserProfile,
+  UsersState,
+  UpdateUserRequest,
+  PaginationParams,
+  ApiResponse,
+} from "../types";
+import { AxiosError } from "axios";
+
+// Async thunks
+export const fetchUsers = createAsyncThunk<
+  ApiResponse<UserProfile[]>,
+  PaginationParams,
+  { rejectValue: string }
+>("users/fetchUsers", async ({ page = 1, limit = 10 }, { rejectWithValue }) => {
+  try {
+    const response = await usersService.getUsers(page, limit);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to fetch users"
+    );
+  }
+});
+
+export const searchUsers = createAsyncThunk<
+  ApiResponse<UserProfile[]>,
+  { query: string } & PaginationParams,
+  { rejectValue: string }
+>(
+  "users/searchUsers",
+  async ({ query, page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await usersService.searchUsers(query, page, limit);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error || "Search failed"
+      );
+    }
+  }
+);
+
+export const fetchUserById = createAsyncThunk<
+  UserProfile,
+  string,
+  { rejectValue: string }
+>("users/fetchUserById", async (userId, { rejectWithValue }) => {
+  try {
+    const response = await usersService.getUserById(userId);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to fetch user"
+    );
+  }
+});
+
+export const updateUser = createAsyncThunk<
+  UserProfile,
+  { userId: string; userData: UpdateUserRequest },
+  { rejectValue: string }
+>("users/updateUser", async ({ userId, userData }, { rejectWithValue }) => {
+  try {
+    const response = await usersService.updateUser(userId, userData);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to update user"
+    );
+  }
+});
+
+export const deleteUser = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("users/deleteUser", async (userId, { rejectWithValue }) => {
+  try {
+    await usersService.deleteUser(userId);
+    return userId;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to delete user"
+    );
+  }
+});
+
+// Initial state
+const initialState: UsersState = {
+  users: [],
+  currentUser: null,
+  isLoading: false,
+  isUpdating: false,
+  isDeleting: false,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  },
+};
+
+// Users slice
+const usersSlice = createSlice({
+  name: "users",
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+    clearCurrentUser: (state) => {
+      state.currentUser = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Users
+      .addCase(fetchUsers.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchUsers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.users = action.payload.data || [];
+        state.pagination = action.payload.pagination || state.pagination;
+      })
+      .addCase(fetchUsers.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to fetch users";
+      })
+      // Fetch User by ID
+      .addCase(fetchUserById.fulfilled, (state, action) => {
+        state.currentUser = action.payload;
+      })
+      // Update User
+      .addCase(updateUser.pending, (state) => {
+        state.isUpdating = true;
+        state.error = null;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const index = state.users.findIndex(
+          (user) => user.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.users[index] = action.payload;
+        }
+        if (state.currentUser?.id === action.payload.id) {
+          state.currentUser = action.payload;
+        }
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.isUpdating = false;
+        state.error = action.payload || "Failed to update user";
+      })
+      // Delete User
+      .addCase(deleteUser.pending, (state) => {
+        state.isDeleting = true;
+        state.error = null;
+      })
+      .addCase(deleteUser.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        state.users = state.users.filter((user) => user.id !== action.payload);
+        if (state.currentUser?.id === action.payload) {
+          state.currentUser = null;
+        }
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.isDeleting = false;
+        state.error = action.payload || "Failed to delete user";
+      });
+  },
+});
+
+export const { clearError, clearCurrentUser } = usersSlice.actions;
+export default usersSlice.reducer;
+```
+
+### 5. Groups Slice
+
+```typescript
+// src/store/groupsSlice.ts
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import groupsService from "../services/groupsService";
+import {
+  Group,
+  GroupsState,
+  CreateGroupRequest,
+  PaginationParams,
+  ApiResponse,
+} from "../types";
+import { AxiosError } from "axios";
+
+// Async thunks
+export const fetchGroups = createAsyncThunk<
+  ApiResponse<Group[]>,
+  PaginationParams,
+  { rejectValue: string }
+>(
+  "groups/fetchGroups",
+  async ({ page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await groupsService.getGroups(page, limit);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error || "Failed to fetch groups"
+      );
+    }
+  }
+);
+
+export const searchGroups = createAsyncThunk<
+  ApiResponse<Group[]>,
+  { query: string } & PaginationParams,
+  { rejectValue: string }
+>(
+  "groups/searchGroups",
+  async ({ query, page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await groupsService.searchGroups(query, page, limit);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error || "Search failed"
+      );
+    }
+  }
+);
+
+export const fetchGroupById = createAsyncThunk<
+  Group,
+  string,
+  { rejectValue: string }
+>("groups/fetchGroupById", async (groupId, { rejectWithValue }) => {
+  try {
+    const response = await groupsService.getGroupById(groupId);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to fetch group"
+    );
+  }
+});
+
+export const createGroup = createAsyncThunk<
+  Group,
+  CreateGroupRequest,
+  { rejectValue: string }
+>("groups/createGroup", async (groupData, { rejectWithValue }) => {
+  try {
+    const response = await groupsService.createGroup(groupData);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to create group"
+    );
+  }
+});
+
+export const updateGroup = createAsyncThunk<
+  Group,
+  { groupId: string; groupData: Partial<CreateGroupRequest> },
+  { rejectValue: string }
+>("groups/updateGroup", async ({ groupId, groupData }, { rejectWithValue }) => {
+  try {
+    const response = await groupsService.updateGroup(groupId, groupData);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to update group"
+    );
+  }
+});
+
+export const deleteGroup = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("groups/deleteGroup", async (groupId, { rejectWithValue }) => {
+  try {
+    await groupsService.deleteGroup(groupId);
+    return groupId;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to delete group"
+    );
+  }
+});
+
+export const joinGroup = createAsyncThunk<
+  { groupId: string; data: any },
+  string,
+  { rejectValue: string }
+>("groups/joinGroup", async (groupId, { rejectWithValue }) => {
+  try {
+    const response = await groupsService.joinGroup(groupId);
+    return { groupId, data: response.data.data };
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to join group"
+    );
+  }
+});
+
+export const leaveGroup = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("groups/leaveGroup", async (groupId, { rejectWithValue }) => {
+  try {
+    await groupsService.leaveGroup(groupId);
+    return groupId;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to leave group"
+    );
+  }
+});
+
+// Initial state
+const initialState: GroupsState = {
+  groups: [],
+  currentGroup: null,
+  isLoading: false,
+  isCreating: false,
+  isUpdating: false,
+  isDeleting: false,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  },
+};
+
+// Groups slice
+const groupsSlice = createSlice({
+  name: "groups",
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+    clearCurrentGroup: (state) => {
+      state.currentGroup = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Groups
+      .addCase(fetchGroups.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchGroups.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.groups = action.payload.data || [];
+        state.pagination = action.payload.pagination || state.pagination;
+      })
+      .addCase(fetchGroups.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to fetch groups";
+      })
+      // Fetch Group by ID
+      .addCase(fetchGroupById.fulfilled, (state, action) => {
+        state.currentGroup = action.payload;
+      })
+      // Create Group
+      .addCase(createGroup.pending, (state) => {
+        state.isCreating = true;
+        state.error = null;
+      })
+      .addCase(createGroup.fulfilled, (state, action) => {
+        state.isCreating = false;
+        state.groups.unshift(action.payload);
+      })
+      .addCase(createGroup.rejected, (state, action) => {
+        state.isCreating = false;
+        state.error = action.payload || "Failed to create group";
+      })
+      // Update Group
+      .addCase(updateGroup.pending, (state) => {
+        state.isUpdating = true;
+        state.error = null;
+      })
+      .addCase(updateGroup.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const index = state.groups.findIndex(
+          (group) => group.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.groups[index] = action.payload;
+        }
+        if (state.currentGroup?.id === action.payload.id) {
+          state.currentGroup = action.payload;
+        }
+      })
+      .addCase(updateGroup.rejected, (state, action) => {
+        state.isUpdating = false;
+        state.error = action.payload || "Failed to update group";
+      })
+      // Delete Group
+      .addCase(deleteGroup.pending, (state) => {
+        state.isDeleting = true;
+        state.error = null;
+      })
+      .addCase(deleteGroup.fulfilled, (state, action) => {
+        state.isDeleting = false;
+        state.groups = state.groups.filter(
+          (group) => group.id !== action.payload
+        );
+        if (state.currentGroup?.id === action.payload) {
+          state.currentGroup = null;
+        }
+      })
+      .addCase(deleteGroup.rejected, (state, action) => {
+        state.isDeleting = false;
+        state.error = action.payload || "Failed to delete group";
+      });
+  },
+});
+
+export const { clearError, clearCurrentGroup } = groupsSlice.actions;
+export default groupsSlice.reducer;
+```
+
+### 6. Social Slice
+
+```typescript
+// src/store/socialSlice.ts
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import socialService from "../services/socialService";
+import { ApiResponse, PaginationParams } from "../types";
+import { AxiosError } from "axios";
+
+interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+  follower?: any;
+  following?: any;
+}
+
+interface SocialState {
+  followers: Follow[];
+  following: Follow[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Async thunks
+export const followUser = createAsyncThunk<
+  Follow,
+  string,
+  { rejectValue: string }
+>("social/followUser", async (userId, { rejectWithValue }) => {
+  try {
+    const response = await socialService.followUser(userId);
+    return response.data.data;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to follow user"
+    );
+  }
+});
+
+export const unfollowUser = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("social/unfollowUser", async (userId, { rejectWithValue }) => {
+  try {
+    await socialService.unfollowUser(userId);
+    return userId;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    return rejectWithValue(
+      (axiosError.response?.data as any)?.error || "Failed to unfollow user"
+    );
+  }
+});
+
+export const fetchFollowers = createAsyncThunk<
+  ApiResponse<Follow[]>,
+  { userId: string } & PaginationParams,
+  { rejectValue: string }
+>(
+  "social/fetchFollowers",
+  async ({ userId, page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await socialService.getFollowers(userId, page, limit);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error || "Failed to fetch followers"
+      );
+    }
+  }
+);
+
+export const fetchFollowing = createAsyncThunk<
+  ApiResponse<Follow[]>,
+  { userId: string } & PaginationParams,
+  { rejectValue: string }
+>(
+  "social/fetchFollowing",
+  async ({ userId, page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await socialService.getFollowing(userId, page, limit);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error || "Failed to fetch following"
+      );
+    }
+  }
+);
+
+// Initial state
+const initialState: SocialState = {
+  followers: [],
+  following: [],
+  isLoading: false,
+  error: null,
+};
+
+// Social slice
+const socialSlice = createSlice({
+  name: "social",
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Follow User
+      .addCase(followUser.fulfilled, (state, action) => {
+        state.following.push(action.payload);
+      })
+      // Unfollow User
+      .addCase(unfollowUser.fulfilled, (state, action) => {
+        state.following = state.following.filter(
+          (follow) => follow.followingId !== action.payload
+        );
+      })
+      // Fetch Followers
+      .addCase(fetchFollowers.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchFollowers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.followers = action.payload.data || [];
+      })
+      .addCase(fetchFollowers.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to fetch followers";
+      })
+      // Fetch Following
+      .addCase(fetchFollowing.fulfilled, (state, action) => {
+        state.following = action.payload.data || [];
+      });
+  },
+});
+
+export const { clearError } = socialSlice.actions;
+export default socialSlice.reducer;
+```
+
+### 7. Notifications Slice
+
+```typescript
+// src/store/notificationsSlice.ts
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import notificationsService from "../services/notificationsService";
+import { ApiResponse, PaginationParams } from "../types";
+import { AxiosError } from "axios";
+
+interface Notification {
+  id: string;
+  userId: string;
+  content: string;
+  read: boolean;
+  type: string;
+  relatedId?: string;
+  createdAt: string;
+}
+
+interface NotificationsState {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Async thunks
+export const fetchNotifications = createAsyncThunk<
+  ApiResponse<Notification[]>,
+  { userId: string } & PaginationParams,
+  { rejectValue: string }
+>(
+  "notifications/fetchNotifications",
+  async ({ userId, page = 1, limit = 10 }, { rejectWithValue }) => {
+    try {
+      const response = await notificationsService.getUserNotifications(
+        userId,
+        page,
+        limit
+      );
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error ||
+          "Failed to fetch notifications"
+      );
+    }
+  }
+);
+
+export const markNotificationRead = createAsyncThunk<
+  Notification,
+  string,
+  { rejectValue: string }
+>(
+  "notifications/markNotificationRead",
+  async (notificationId, { rejectWithValue }) => {
+    try {
+      const response =
+        await notificationsService.markNotificationRead(notificationId);
+      return response.data.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error ||
+          "Failed to mark notification as read"
+      );
+    }
+  }
+);
+
+export const markAllNotificationsRead = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>(
+  "notifications/markAllNotificationsRead",
+  async (userId, { rejectWithValue }) => {
+    try {
+      await notificationsService.markAllNotificationsRead(userId);
+      return userId;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error ||
+          "Failed to mark all notifications as read"
+      );
+    }
+  }
+);
+
+export const deleteNotification = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>(
+  "notifications/deleteNotification",
+  async (notificationId, { rejectWithValue }) => {
+    try {
+      await notificationsService.deleteNotification(notificationId);
+      return notificationId;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return rejectWithValue(
+        (axiosError.response?.data as any)?.error ||
+          "Failed to delete notification"
+      );
+    }
+  }
+);
+
+// Initial state
+const initialState: NotificationsState = {
+  notifications: [],
+  unreadCount: 0,
+  isLoading: false,
+  error: null,
+};
+
+// Notifications slice
+const notificationsSlice = createSlice({
+  name: "notifications",
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch Notifications
+      .addCase(fetchNotifications.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchNotifications.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.notifications = action.payload.data || [];
+        state.unreadCount = state.notifications.filter((n) => !n.read).length;
+      })
+      .addCase(fetchNotifications.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to fetch notifications";
+      })
+      // Mark Notification Read
+      .addCase(markNotificationRead.fulfilled, (state, action) => {
+        const index = state.notifications.findIndex(
+          (n) => n.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.notifications[index] = action.payload;
+          state.unreadCount = Math.max(0, state.unreadCount - 1);
+        }
+      })
+      // Mark All Notifications Read
+      .addCase(markAllNotificationsRead.fulfilled, (state) => {
+        state.notifications = state.notifications.map((n) => ({
+          ...n,
+          read: true,
+        }));
+        state.unreadCount = 0;
+      })
+      // Delete Notification
+      .addCase(deleteNotification.fulfilled, (state, action) => {
+        const notification = state.notifications.find(
+          (n) => n.id === action.payload
+        );
+        if (notification && !notification.read) {
+          state.unreadCount = Math.max(0, state.unreadCount - 1);
+        }
+        state.notifications = state.notifications.filter(
+          (n) => n.id !== action.payload
+        );
+      });
+  },
+});
+
+export const { clearError } = notificationsSlice.actions;
+export default notificationsSlice.reducer;
 ```
 
 ---
@@ -2021,6 +3752,885 @@ const styles = StyleSheet.create({
 
 export default EventsScreen;
 ```
+
+### 5. Create Event Screen Example
+
+```typescript
+// src/screens/CreateEventScreen.tsx
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { useEvents } from "../hooks/useEvents";
+import { useAuth } from "../hooks/useAuth";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { INTEREST_CATEGORIES } from "../utils/constants";
+
+type RootStackParamList = {
+  CreateEvent: undefined;
+  Events: undefined;
+};
+
+type CreateEventScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CreateEvent'>;
+
+interface CreateEventScreenProps {
+  navigation: CreateEventScreenNavigationProp;
+}
+
+const CreateEventScreen: React.FC<CreateEventScreenProps> = ({ navigation }) => {
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [location, setLocation] = useState<string>("");
+  const [date, setDate] = useState<string>("");
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+
+  const { createEvent, isCreating, error, clearError } = useEvents();
+  const { isAuthenticated } = useAuth();
+
+  const handleSubmit = async (): Promise<void> => {
+    if (!isAuthenticated) {
+      Alert.alert("Login Required", "Please login to create events");
+      return;
+    }
+
+    if (!title || !description || !location || !date) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const result = await createEvent({
+        title,
+        description,
+        location,
+        date: new Date(date),
+        interests: selectedInterests,
+      });
+
+      if (result.meta.requestStatus === "fulfilled") {
+        Alert.alert("Success", "Event created successfully!", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
+      }
+    } catch (err) {
+      console.error("Create event error:", err);
+    }
+  };
+
+  const toggleInterest = (interest: string): void => {
+    setSelectedInterests(prev =>
+      prev.includes(interest)
+        ? prev.filter(i => i !== interest)
+        : [...prev, interest]
+    );
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Create New Event</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Event Title"
+        value={title}
+        onChangeText={setTitle}
+        testID="title-input"
+      />
+
+      <TextInput
+        style={[styles.input, styles.textArea]}
+        placeholder="Event Description"
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={4}
+        testID="description-input"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Location"
+        value={location}
+        onChangeText={setLocation}
+        testID="location-input"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Date (YYYY-MM-DD)"
+        value={date}
+        onChangeText={setDate}
+        testID="date-input"
+      />
+
+      <Text style={styles.sectionTitle}>Select Interests</Text>
+      <View style={styles.interestsContainer}>
+        {INTEREST_CATEGORIES.map((interest) => (
+          <TouchableOpacity
+            key={interest}
+            style={[
+              styles.interestTag,
+              selectedInterests.includes(interest) && styles.selectedInterest
+            ]}
+            onPress={() => toggleInterest(interest)}
+            testID={`interest-${interest}`}
+          >
+            <Text style={[
+              styles.interestText,
+              selectedInterests.includes(interest) && styles.selectedInterestText
+            ]}>
+              {interest}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={handleSubmit}
+        disabled={isCreating}
+        testID="create-button"
+      >
+        <Text style={styles.createButtonText}>
+          {isCreating ? "Creating..." : "Create Event"}
+        </Text>
+      </TouchableOpacity>
+
+      {error && (
+        <Text style={styles.errorText} testID="error-text">
+          {error}
+        </Text>
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#333",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
+  },
+  interestsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 20,
+  },
+  interestTag: {
+    backgroundColor: "#f0f0f0",
+    padding: 10,
+    borderRadius: 20,
+    margin: 5,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  selectedInterest: {
+    backgroundColor: "#007bff",
+    borderColor: "#007bff",
+  },
+  interestText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  selectedInterestText: {
+    color: "#fff",
+  },
+  createButton: {
+    backgroundColor: "#28a745",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  createButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  errorText: {
+    color: "#dc3545",
+    textAlign: "center",
+    marginTop: 10,
+  },
+});
+
+export default CreateEventScreen;
+```
+
+### 6. Profile Screen Example
+
+```typescript
+// src/screens/ProfileScreen.tsx
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+  ScrollView,
+} from "react-native";
+import { useAuth } from "../hooks/useAuth";
+import { useUsers } from "../hooks/useUsers";
+import { useSocial } from "../hooks/useSocial";
+import { StackNavigationProp } from "@react-navigation/stack";
+
+type RootStackParamList = {
+  Profile: { userId?: string };
+  EditProfile: undefined;
+  Login: undefined;
+};
+
+type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Profile'>;
+
+interface ProfileScreenProps {
+  navigation: ProfileScreenNavigationProp;
+  route: {
+    params?: {
+      userId?: string;
+    };
+  };
+}
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
+  const { userId } = route.params || {};
+  const { user: currentUser, isAuthenticated, logout } = useAuth();
+  const { currentUser: profileUser, getUserById } = useUsers();
+  const { followUser, unfollowUser, getFollowers, getFollowing, followers, following } = useSocial();
+
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followersCount, setFollowersCount] = useState<number>(0);
+  const [followingCount, setFollowingCount] = useState<number>(0);
+
+  const targetUserId = userId || currentUser?.id;
+  const isOwnProfile = !userId || userId === currentUser?.id;
+  const displayUser = isOwnProfile ? currentUser : profileUser;
+
+  useEffect(() => {
+    if (targetUserId) {
+      if (!isOwnProfile) {
+        getUserById(targetUserId);
+      }
+      loadSocialData();
+    }
+  }, [targetUserId, isOwnProfile]);
+
+  const loadSocialData = async (): Promise<void> => {
+    if (targetUserId) {
+      await getFollowers(targetUserId);
+      await getFollowing(targetUserId);
+      setFollowersCount(followers.length);
+      setFollowingCount(following.length);
+
+      // Check if current user is following this profile
+      if (!isOwnProfile && currentUser) {
+        const isUserFollowing = followers.some(
+          follow => follow.followerId === currentUser.id
+        );
+        setIsFollowing(isUserFollowing);
+      }
+    }
+  };
+
+  const handleFollowToggle = async (): Promise<void> => {
+    if (!isAuthenticated || !targetUserId) {
+      Alert.alert("Login Required", "Please login to follow users");
+      return;
+    }
+
+    try {
+      if (isFollowing) {
+        await unfollowUser(targetUserId);
+        setIsFollowing(false);
+        setFollowersCount(prev => Math.max(0, prev - 1));
+      } else {
+        await followUser(targetUserId);
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error("Follow/unfollow error:", error);
+      Alert.alert("Error", "Failed to update follow status");
+    }
+  };
+
+  const handleLogout = async (): Promise<void> => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            await logout();
+            navigation.replace("Login");
+          },
+        },
+      ]
+    );
+  };
+
+  if (!displayUser) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        {displayUser.image ? (
+          <Image source={{ uri: displayUser.image }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>
+              {displayUser.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <Text style={styles.name}>{displayUser.name}</Text>
+        <Text style={styles.email}>{displayUser.email}</Text>
+
+        {displayUser.bio && (
+          <Text style={styles.bio}>{displayUser.bio}</Text>
+        )}
+
+        <View style={styles.statsContainer}>
+          <View style={styles.stat}>
+            <Text style={styles.statNumber}>{followersCount}</Text>
+            <Text style={styles.statLabel}>Followers</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statNumber}>{followingCount}</Text>
+            <Text style={styles.statLabel}>Following</Text>
+          </View>
+        </View>
+
+        {isOwnProfile ? (
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => navigation.navigate("EditProfile")}
+              testID="edit-profile-button"
+            >
+              <Text style={styles.editButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              testID="logout-button"
+            >
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.followButton, isFollowing && styles.unfollowButton]}
+            onPress={handleFollowToggle}
+            testID="follow-button"
+          >
+            <Text style={styles.followButtonText}>
+              {isFollowing ? "Unfollow" : "Follow"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  header: {
+    alignItems: "center",
+    padding: 20,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#007bff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  avatarText: {
+    fontSize: 36,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+  },
+  email: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 10,
+  },
+  bio: {
+    fontSize: 16,
+    color: "#333",
+    textAlign: "center",
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  stat: {
+    alignItems: "center",
+    marginHorizontal: 30,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  editButton: {
+    backgroundColor: "#007bff",
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  editButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  logoutButton: {
+    backgroundColor: "#dc3545",
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  logoutButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  followButton: {
+    backgroundColor: "#28a745",
+    padding: 12,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  unfollowButton: {
+    backgroundColor: "#6c757d",
+  },
+  followButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
+
+export default ProfileScreen;
+```
+
+### 7. Notifications Screen Example
+
+```typescript
+// src/screens/NotificationsScreen.tsx
+import React, { useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  Alert,
+  ListRenderItem,
+} from "react-native";
+import { useNotifications } from "../hooks/useNotifications";
+import { useAuth } from "../hooks/useAuth";
+
+interface Notification {
+  id: string;
+  userId: string;
+  content: string;
+  read: boolean;
+  type: string;
+  relatedId?: string;
+  createdAt: string;
+}
+
+const NotificationsScreen: React.FC = () => {
+  const { user } = useAuth();
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    getNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications();
+
+  useEffect(() => {
+    if (user) {
+      loadNotifications();
+    }
+  }, [user]);
+
+  const loadNotifications = (): void => {
+    if (user) {
+      getNotifications(user.id);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: string): Promise<void> => {
+    try {
+      await markAsRead(notificationId);
+    } catch (error) {
+      console.error("Mark as read error:", error);
+    }
+  };
+
+  const handleMarkAllAsRead = async (): Promise<void> => {
+    if (!user) return;
+
+    try {
+      await markAllAsRead(user.id);
+      Alert.alert("Success", "All notifications marked as read");
+    } catch (error) {
+      console.error("Mark all as read error:", error);
+      Alert.alert("Error", "Failed to mark all as read");
+    }
+  };
+
+  const handleDelete = async (notificationId: string): Promise<void> => {
+    Alert.alert(
+      "Delete Notification",
+      "Are you sure you want to delete this notification?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteNotification(notificationId);
+            } catch (error) {
+              console.error("Delete notification error:", error);
+              Alert.alert("Error", "Failed to delete notification");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderNotification: ListRenderItem<Notification> = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.notificationCard, !item.read && styles.unreadCard]}
+      onPress={() => !item.read && handleMarkAsRead(item.id)}
+      testID={`notification-${item.id}`}
+    >
+      <View style={styles.notificationContent}>
+        <Text style={[styles.content, !item.read && styles.unreadText]}>
+          {item.content}
+        </Text>
+        <Text style={styles.timestamp}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDelete(item.id)}
+        testID={`delete-${item.id}`}
+      >
+        <Text style={styles.deleteText}>×</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          Notifications {unreadCount > 0 && `(${unreadCount})`}
+        </Text>
+        {unreadCount > 0 && (
+          <TouchableOpacity
+            style={styles.markAllButton}
+            onPress={handleMarkAllAsRead}
+            testID="mark-all-read"
+          >
+            <Text style={styles.markAllText}>Mark All Read</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <FlatList<Notification>
+        data={notifications}
+        renderItem={renderNotification}
+        keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={loadNotifications} />
+        }
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        testID="notifications-list"
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No notifications yet</Text>
+          </View>
+        }
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  markAllButton: {
+    backgroundColor: "#007bff",
+    padding: 8,
+    borderRadius: 5,
+  },
+  markAllText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  listContainer: {
+    padding: 15,
+  },
+  notificationCard: {
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  unreadCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#007bff",
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  content: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 5,
+  },
+  unreadText: {
+    color: "#333",
+    fontWeight: "500",
+  },
+  timestamp: {
+    fontSize: 12,
+    color: "#999",
+  },
+  deleteButton: {
+    padding: 5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteText: {
+    fontSize: 20,
+    color: "#dc3545",
+    fontWeight: "bold",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#666",
+  },
+});
+
+export default NotificationsScreen;
+```
+
+---
+
+## 🔧 Complete API Coverage Summary
+
+### ✅ **ALL APIs Covered (66 Endpoints)**
+
+#### 🔐 **Authentication (7 endpoints)**
+
+- `POST /auth/login` - Password login
+- `POST /auth/register` - User registration
+- `POST /auth/oauth` - OAuth login (Google, etc.)
+- `GET /auth/me` - Get current user
+- `POST /auth/refresh` - Refresh access token
+- `POST /auth/logout` - Logout current session
+- `POST /auth/logout-all` - Logout all devices
+
+#### 🎪 **Events (15 endpoints)**
+
+- `GET /events` - Get all events (with pagination)
+- `GET /events/search` - Search events by query
+- `GET /events/upcoming` - Get upcoming events
+- `GET /events/location/:location` - Get events by location
+- `GET /events/interest/:interest` - Get events by interest
+- `GET /events/interests` - Search events by multiple interests
+- `GET /events/:id` - Get specific event
+- `GET /events/:id/participants` - Get event participants
+- `GET /events/:id/reviews` - Get event reviews
+- `POST /events` - Create new event
+- `PUT /events/:id` - Update event
+- `DELETE /events/:id` - Delete event
+- `POST /events/:id/join` - Join event
+- `DELETE /events/:id/leave` - Leave event
+- `POST /events/:id/reviews` - Add event review
+
+#### 👥 **Users (9 endpoints)**
+
+- `GET /users` - Get all users (with pagination)
+- `GET /users/search` - Search users by query
+- `GET /users/:id` - Get specific user
+- `GET /users/:id/profile` - Get user profile with stats
+- `GET /users/:id/events` - Get user's events
+- `GET /users/:id/participations` - Get user's event participations
+- `POST /users` - Create new user
+- `PUT /users/:id` - Update user profile
+- `DELETE /users/:id` - Delete user account
+
+#### 👫 **Social (9 endpoints)**
+
+- `POST /social/follow` - Follow a user
+- `DELETE /social/unfollow` - Unfollow a user
+- `GET /social/followers/:userId` - Get user's followers
+- `GET /social/following/:userId` - Get user's following
+- `GET /social/following/:followerId/:followingId` - Check if following
+- `POST /social/reviews` - Add review
+- `PUT /social/reviews/:reviewId` - Update review
+- `DELETE /social/reviews/:reviewId` - Delete review
+- `GET /social/reviews/user/:userId` - Get user's reviews
+
+#### 🏘️ **Groups (9 endpoints)**
+
+- `GET /groups` - Get all groups (with pagination)
+- `GET /groups/search` - Search groups by query
+- `GET /groups/:id` - Get specific group
+- `GET /groups/:id/members` - Get group members
+- `POST /groups` - Create new group
+- `PUT /groups/:id` - Update group
+- `DELETE /groups/:id` - Delete group
+- `POST /groups/:id/join` - Join group
+- `DELETE /groups/:id/leave` - Leave group
+
+#### 🔔 **Notifications (7 endpoints)**
+
+- `GET /notifications/user/:userId` - Get user notifications
+- `GET /notifications/user/:userId/unread` - Get unread notifications
+- `GET /notifications/user/:userId/count` - Get notification count
+- `POST /notifications` - Create notification
+- `PUT /notifications/:id/read` - Mark notification as read
+- `PUT /notifications/user/:userId/read-all` - Mark all as read
+- `DELETE /notifications/:id` - Delete notification
+
+#### ✅ **Verification (10 endpoints)**
+
+- `GET /verification` - Get all verification requests (admin)
+- `GET /verification/pending` - Get pending requests
+- `GET /verification/status/:status` - Get requests by status
+- `GET /verification/:id` - Get verification request by ID
+- `GET /verification/user/:userId` - Get user's verification requests
+- `POST /verification` - Create verification request
+- `PUT /verification/:id` - Update verification request
+- `PUT /verification/:id/approve` - Approve verification request
+- `PUT /verification/:id/reject` - Reject verification request
+- `DELETE /verification/:id` - Delete verification request
 
 ---
 

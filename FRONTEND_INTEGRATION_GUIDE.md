@@ -855,7 +855,7 @@ const authStore = {
 
 **🌐 API Base:** `http://localhost:3080/api`  
 **🔐 Auth Method:** JWT Bearer tokens  
-**📊 Total Endpoints:** 73+  
+**📊 Total Endpoints:** 66  
 **💾 Database:** PostgreSQL with Drizzle ORM  
 **🔒 Security:** PBKDF2 password hashing, token blacklisting
 
