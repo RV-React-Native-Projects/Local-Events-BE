@@ -15,6 +15,7 @@ import {
   verificationRequests,
 } from "../src/db/schema";
 import { faker } from "@faker-js/faker";
+import { PasswordService } from "../src/utils/crypto";
 import { reset } from "drizzle-seed";
 
 // Database connection
@@ -46,18 +47,48 @@ async function seed() {
   console.log("🌱 Starting database seeding...");
 
   try {
-    // 1. Create Users (20 users)
+    // 1. Create Users (20 users + test users)
     console.log("Creating users...");
-    const userData = Array.from({ length: 20 }, () => ({
+
+    // Create test users with passwords for testing
+    const hashedPassword = await PasswordService.hashPassword("password123");
+
+    const testUsers = [
+      {
+        name: "John Doe",
+        email: "john@example.com",
+        password: hashedPassword,
+        username: "johndoe",
+        bio: "Test user with password authentication",
+        image: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
+      },
+      {
+        name: "Jane Smith",
+        email: "jane@example.com",
+        password: hashedPassword,
+        username: "janesmith",
+        bio: "Another test user with password authentication",
+        image: "https://api.dicebear.com/7.x/avataaars/svg?seed=jane",
+      },
+    ];
+
+    // Create random OAuth users (no password)
+    const oauthUsers = Array.from({ length: 18 }, () => ({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       image: faker.image.avatar(),
       username: faker.internet.username(),
       bio: faker.lorem.sentence(),
+      password: "password123",
     }));
 
+    // Combine test users and OAuth users
+    const userData = [...testUsers, ...oauthUsers];
+
     const createdUsers = await db.insert(users).values(userData).returning();
-    console.log(`✅ Created ${createdUsers.length} users`);
+    console.log(
+      `✅ Created ${createdUsers.length} users (including 2 test users with passwords)`
+    );
 
     // 2. Create Accounts (for all users)
     console.log("Creating accounts...");

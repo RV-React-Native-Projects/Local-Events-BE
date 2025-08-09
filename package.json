@@ -6,7 +6,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
-    "db:reset": "drizzle-kit reset",
+    "db:reset": "drizzle-kit drop && rm -rf drizzle",
     "db:seed": "bun run ./scripts/seedV2.ts"
   },
   "dependencies": {

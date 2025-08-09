@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { requireAuth, optionalAuth } from "../middleware/auth";
+import "../types/hono";
 import {
   getAllEvents,
   getEventById,
@@ -29,7 +31,6 @@ const createEventSchema = z.object({
   description: z.string().min(1),
   date: z.string().datetime(),
   location: z.string().min(1).max(255),
-  organizerId: z.string().uuid(),
   interests: z.array(z.string()).optional(),
 });
 
@@ -212,7 +213,7 @@ events.get(
 );
 
 // GET /events/:id - Get event by ID
-events.get("/:id", async (c) => {
+events.get("/:id", optionalAuth, async (c) => {
   try {
     const eventId = c.req.param("id");
     const event = await getEventById(eventId);
@@ -277,66 +278,79 @@ events.get("/:id/reviews", zValidator("query", paginationSchema), async (c) => {
 });
 
 // POST /events - Create new event
-events.post("/", zValidator("json", createEventSchema), async (c) => {
-  try {
-    const eventData = c.req.valid("json");
-    const event = await createEvent({
-      ...eventData,
-      date: new Date(eventData.date),
-    });
+events.post(
+  "/",
+  requireAuth,
+  zValidator("json", createEventSchema),
+  async (c) => {
+    try {
+      const eventData = c.req.valid("json");
+      const user = c.get("user");
 
-    return c.json(
-      {
-        success: true,
-        data: event,
-      },
-      201
-    );
-  } catch (error) {
-    return c.json({ success: false, error: "Failed to create event" }, 500);
+      const event = await createEvent({
+        ...eventData,
+        date: new Date(eventData.date),
+        organizerId: user.userId,
+      });
+
+      return c.json(
+        {
+          success: true,
+          data: event,
+        },
+        201
+      );
+    } catch (error) {
+      return c.json({ success: false, error: "Failed to create event" }, 500);
+    }
   }
-});
+);
 
 // PUT /events/:id - Update event
-events.put("/:id", zValidator("json", updateEventSchema), async (c) => {
-  try {
-    const eventId = c.req.param("id");
-    const updateData = c.req.valid("json");
+events.put(
+  "/:id",
+  requireAuth,
+  zValidator("json", updateEventSchema),
+  async (c) => {
+    try {
+      const eventId = c.req.param("id");
+      const updateData = c.req.valid("json");
 
-    // Check if event exists
-    const existingEvent = await getEventById(eventId);
-    if (!existingEvent) {
-      return c.json({ success: false, error: "Event not found" }, 404);
+      // Check if event exists
+      const existingEvent = await getEventById(eventId);
+      if (!existingEvent) {
+        return c.json({ success: false, error: "Event not found" }, 404);
+      }
+
+      const updatePayload: {
+        title?: string;
+        description?: string;
+        date?: Date;
+        location?: string;
+        interests?: string[];
+      } = {};
+
+      if (updateData.title) updatePayload.title = updateData.title;
+      if (updateData.description)
+        updatePayload.description = updateData.description;
+      if (updateData.date) updatePayload.date = new Date(updateData.date);
+      if (updateData.location) updatePayload.location = updateData.location;
+      if (updateData.interests) updatePayload.interests = updateData.interests;
+
+      const updatedEvent = await updateEvent(eventId, updatePayload);
+
+      return c.json({
+        success: true,
+        data: updatedEvent,
+      });
+    } catch (error) {
+      return c.json({ success: false, error: "Failed to update event" }, 500);
     }
-
-    const updatePayload: {
-      title?: string;
-      description?: string;
-      date?: Date;
-      location?: string;
-      interests?: string[];
-    } = {};
-
-    if (updateData.title) updatePayload.title = updateData.title;
-    if (updateData.description)
-      updatePayload.description = updateData.description;
-    if (updateData.date) updatePayload.date = new Date(updateData.date);
-    if (updateData.location) updatePayload.location = updateData.location;
-    if (updateData.interests) updatePayload.interests = updateData.interests;
-
-    const updatedEvent = await updateEvent(eventId, updatePayload);
-
-    return c.json({
-      success: true,
-      data: updatedEvent,
-    });
-  } catch (error) {
-    return c.json({ success: false, error: "Failed to update event" }, 500);
   }
-});
+);
 
 // DELETE /events/:id - Delete event
-events.delete("/:id", async (c) => {
+events.delete("/:id", requireAuth, async (c) => {
   try {
     const eventId = c.req.param("id");
 
@@ -359,17 +373,13 @@ events.delete("/:id", async (c) => {
 });
 
 // POST /events/:id/join - Join event
-events.post("/:id/join", async (c) => {
+events.post("/:id/join", requireAuth, async (c) => {
   try {
     const eventId = c.req.param("id");
-    const { userId } = await c.req.json();
-
-    if (!userId) {
-      return c.json({ success: false, error: "User ID is required" }, 400);
-    }
+    const user = c.get("user");
 
     // Check if already participating
-    const isParticipating = await isUserParticipating(userId, eventId);
+    const isParticipating = await isUserParticipating(user.userId, eventId);
     if (isParticipating) {
       return c.json(
         { success: false, error: "Already participating in this event" },
@@ -377,7 +387,7 @@ events.post("/:id/join", async (c) => {
       );
     }
 
-    const participation = await joinEvent(userId, eventId);
+    const participation = await joinEvent(user.userId, eventId);
 
     return c.json({
       success: true,
@@ -390,16 +400,12 @@ events.post("/:id/join", async (c) => {
 });
 
 // DELETE /events/:id/leave - Leave event
-events.delete("/:id/leave", async (c) => {
+events.delete("/:id/leave", requireAuth, async (c) => {
   try {
     const eventId = c.req.param("id");
-    const { userId } = await c.req.json();
+    const user = c.get("user");
 
-    if (!userId) {
-      return c.json({ success: false, error: "User ID is required" }, 400);
-    }
-
-    const participation = await leaveEvent(userId, eventId);
+    const participation = await leaveEvent(user.userId, eventId);
 
     return c.json({
       success: true,
@@ -412,34 +418,35 @@ events.delete("/:id/leave", async (c) => {
 });
 
 // POST /events/:id/reviews - Add event review
-events.post("/:id/reviews", zValidator("json", reviewSchema), async (c) => {
-  try {
-    const eventId = c.req.param("id");
-    const reviewData = c.req.valid("json");
-    const { userId } = await c.req.json();
+events.post(
+  "/:id/reviews",
+  requireAuth,
+  zValidator("json", reviewSchema),
+  async (c) => {
+    try {
+      const eventId = c.req.param("id");
+      const reviewData = c.req.valid("json");
+      const user = c.get("user");
 
-    if (!userId) {
-      return c.json({ success: false, error: "User ID is required" }, 400);
+      const review = await addEventReview({
+        eventId,
+        userId: user.userId,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+      });
+
+      return c.json(
+        {
+          success: true,
+          data: review,
+          message: "Review added successfully",
+        },
+        201
+      );
+    } catch (error) {
+      return c.json({ success: false, error: "Failed to add review" }, 500);
     }
-
-    const review = await addEventReview({
-      eventId,
-      userId,
-      rating: reviewData.rating,
-      comment: reviewData.comment,
-    });
-
-    return c.json(
-      {
-        success: true,
-        data: review,
-        message: "Review added successfully",
-      },
-      201
-    );
-  } catch (error) {
-    return c.json({ success: false, error: "Failed to add review" }, 500);
   }
-});
+);
 
 export { events };

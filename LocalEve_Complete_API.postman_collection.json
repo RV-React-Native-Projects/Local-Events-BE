@@ -1,0 +1,1426 @@
+{
+  "info": {
+    "_postman_id": "localeve-complete-api-v2",
+    "name": "LocalEve Complete API Collection v2",
+    "description": "Complete comprehensive API collection for LocalEve backend with JWT authentication support for all routes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set auth token for protected routes",
+          "const protectedPatterns = ['/api/events', '/api/users', '/api/groups', '/api/social', '/api/notifications', '/api/verification'];",
+          "const excludePatterns = ['/auth/login', '/auth/register', '/auth/oauth'];",
+          "const url = pm.request.url.toString();",
+          "",
+          "// Check if this is a protected route that needs auth",
+          "const isProtected = protectedPatterns.some(pattern => url.includes(pattern)) && !excludePatterns.some(pattern => url.includes(pattern));",
+          "const isAuthRoute = url.includes('/auth/') && !excludePatterns.some(pattern => url.includes(pattern));",
+          "",
+          "if (isProtected || isAuthRoute) {",
+          "    const token = pm.environment.get('auth_token');",
+          "    if (token) {",
+          "        pm.request.headers.add({",
+          "            key: 'Authorization',",
+          "            value: 'Bearer ' + token",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3080/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Login with Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json() && pm.response.json().data) {",
+                  "    if (pm.response.json().data.accessToken) {",
+                  "        pm.environment.set('auth_token', pm.response.json().data.accessToken);",
+                  "        pm.environment.set('refresh_token', pm.response.json().data.refreshToken);",
+                  "        console.log('✅ Saved access token and refresh token');",
+                  "    }",
+                  "    if (pm.response.json().data.user) {",
+                  "        pm.environment.set('user_id', pm.response.json().data.user.id);",
+                  "        pm.environment.set('user_email', pm.response.json().data.user.email);",
+                  "        console.log('✅ Saved user info');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register with Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json() && pm.response.json().data) {",
+                  "    if (pm.response.json().data.accessToken) {",
+                  "        pm.environment.set('auth_token', pm.response.json().data.accessToken);",
+                  "        pm.environment.set('refresh_token', pm.response.json().data.refreshToken);",
+                  "        console.log('✅ Saved access token and refresh token');",
+                  "    }",
+                  "    if (pm.response.json().data.user) {",
+                  "        pm.environment.set('user_id', pm.response.json().data.user.id);",
+                  "        pm.environment.set('user_email', pm.response.json().data.user.email);",
+                  "        console.log('✅ Saved user info');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\",\n  \"username\": \"newuser\",\n  \"bio\": \"I'm a new user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "OAuth Login/Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"providerAccountId\": \"google_123456\",\n  \"name\": \"Google User\",\n  \"email\": \"googleuser@gmail.com\",\n  \"image\": \"https://lh3.googleusercontent.com/a/example\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/oauth",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "oauth"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json() && pm.response.json().data) {",
+                  "    if (pm.response.json().data.accessToken) {",
+                  "        pm.environment.set('auth_token', pm.response.json().data.accessToken);",
+                  "        pm.environment.set('refresh_token', pm.response.json().data.refreshToken);",
+                  "        console.log('✅ Updated tokens from refresh');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout (Current Session)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.unset('auth_token');",
+                  "    pm.environment.unset('refresh_token');",
+                  "    pm.environment.unset('user_id');",
+                  "    pm.environment.unset('user_email');",
+                  "    console.log('✅ Cleared all authentication tokens');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Logout All Devices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.unset('auth_token');",
+                  "    pm.environment.unset('refresh_token');",
+                  "    pm.environment.unset('user_id');",
+                  "    pm.environment.unset('user_email');",
+                  "    console.log('✅ Cleared all authentication tokens - logged out from all devices');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout-all",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout-all"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Events",
+      "item": [
+        {
+          "name": "Get All Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/search?q=tech&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "tech"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Upcoming Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/upcoming?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "upcoming"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Events by Location",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/location/San Francisco?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "location", "San Francisco"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Events by Interest",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/interest/Tech & Innovation?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "interest", "Tech & Innovation"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Events by Multiple Interests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/interests?interests=Tech & Innovation,Business & Career&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "interests"],
+              "query": [
+                {
+                  "key": "interests",
+                  "value": "Tech & Innovation,Business & Career"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Event Participants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}/participants?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}", "participants"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event Reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}/reviews?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}", "reviews"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Event (Protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json() && pm.response.json().data && pm.response.json().data.id) {",
+                  "    pm.environment.set('event_id', pm.response.json().data.id);",
+                  "    console.log('✅ Saved event_id:', pm.response.json().data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Tech Meetup\",\n  \"description\": \"A meetup for tech enthusiasts to discuss latest trends\",\n  \"date\": \"2025-08-15T18:00:00.000Z\",\n  \"location\": \"San Francisco, CA\",\n  \"interests\": [\"Tech & Innovation\", \"Business & Career\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["events"]
+            }
+          }
+        },
+        {
+          "name": "Update Event (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Tech Meetup\",\n  \"description\": \"Updated description for tech meetup\",\n  \"location\": \"Updated Location\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Event (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Join Event (Protected)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}/join",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}", "join"]
+            }
+          }
+        },
+        {
+          "name": "Leave Event (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}/leave",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}", "leave"]
+            }
+          }
+        },
+        {
+          "name": "Add Event Review (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Amazing event! Learned a lot and met great people.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/events/{{event_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["events", "{{event_id}}", "reviews"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/search?q=john&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "john"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Get User Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/events?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "events"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Participations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/participations?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "participations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Test User\",\n  \"email\": \"testuser@example.com\",\n  \"username\": \"testuser\",\n  \"bio\": \"I'm a test user created via API\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update User (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated User Name\",\n  \"bio\": \"Updated bio description\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👫 Groups",
+      "item": [
+        {
+          "name": "Get All Groups",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/groups?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["groups"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Groups",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/groups/search?q=tech&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "tech"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Group by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Group Members",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}/members?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}", "members"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Group (Protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json() && pm.response.json().data && pm.response.json().data.id) {",
+                  "    pm.environment.set('group_id', pm.response.json().data.id);",
+                  "    console.log('✅ Saved group_id:', pm.response.json().data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tech Enthusiasts Group\",\n  \"createdBy\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/groups",
+              "host": ["{{base_url}}"],
+              "path": ["groups"]
+            }
+          }
+        },
+        {
+          "name": "Update Group (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tech Group Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Group (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Join Group (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}/join",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}", "join"]
+            }
+          }
+        },
+        {
+          "name": "Leave Group (Protected)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/groups/{{group_id}}/leave",
+              "host": ["{{base_url}}"],
+              "path": ["groups", "{{group_id}}", "leave"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤝 Social",
+      "item": [
+        {
+          "name": "Follow User (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"followerId\": \"{{user_id}}\",\n  \"followingId\": \"target_user_id_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social/follow",
+              "host": ["{{base_url}}"],
+              "path": ["social", "follow"]
+            }
+          }
+        },
+        {
+          "name": "Unfollow User (Protected)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"followerId\": \"{{user_id}}\",\n  \"followingId\": \"target_user_id_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social/unfollow",
+              "host": ["{{base_url}}"],
+              "path": ["social", "unfollow"]
+            }
+          }
+        },
+        {
+          "name": "Get User Following",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/social/following/{{user_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["social", "following", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Followers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/social/followers/{{user_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["social", "followers", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check if Following",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/social/following/{{user_id}}/target_user_id_here",
+              "host": ["{{base_url}}"],
+              "path": [
+                "social",
+                "following",
+                "{{user_id}}",
+                "target_user_id_here"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Review (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"userId\": \"{{user_id}}\",\n  \"rating\": 5,\n  \"comment\": \"Great event, highly recommended!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["social", "reviews"]
+            }
+          }
+        },
+        {
+          "name": "Update Review (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated review comment\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social/reviews/{{review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["social", "reviews", "{{review_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Review (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/social/reviews/{{review_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["social", "reviews", "{{review_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get User Reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/social/reviews/user/{{user_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["social", "reviews", "user", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "Get User Notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications/user/{{user_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "user", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications/user/{{user_id}}/unread?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "user", "{{user_id}}", "unread"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Notification Count",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications/user/{{user_id}}/count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "user", "{{user_id}}", "count"]
+            }
+          }
+        },
+        {
+          "name": "Create Notification (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"content\": \"You have a new notification!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read (Protected)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read (Protected)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{base_url}}/notifications/user/{{user_id}}/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "user", "{{user_id}}", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Notification (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "✅ Verification",
+      "item": [
+        {
+          "name": "Get All Verification Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/verification?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["verification"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Verification Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/verification/pending?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "pending"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Verification Requests by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/verification/status/approved?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "status", "approved"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Verification Request by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/verification/{{verification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "{{verification_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get User Verification Requests",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/verification/user/{{user_id}}?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "user", "{{user_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Verification Request (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"documentUrl\": \"https://example.com/document.pdf\",\n  \"notes\": \"Please verify my account\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verification",
+              "host": ["{{base_url}}"],
+              "path": ["verification"]
+            }
+          }
+        },
+        {
+          "name": "Update Verification Request (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentUrl\": \"https://example.com/updated-document.pdf\",\n  \"notes\": \"Updated verification request\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verification/{{verification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "{{verification_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Approve Verification Request (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerId\": \"{{user_id}}\",\n  \"notes\": \"Verification approved\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verification/{{verification_id}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "{{verification_id}}", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Reject Verification Request (Protected)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewerId\": \"{{user_id}}\",\n  \"notes\": \"Verification rejected due to incomplete documents\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verification/{{verification_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "{{verification_id}}", "reject"]
+            }
+          }
+        },
+        {
+          "name": "Delete Verification Request (Protected)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/verification/{{verification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["verification", "{{verification_id}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -239,6 +239,7 @@ async function seed() {
         image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
         username: generateUsername(name),
         bio: generateBio(),
+        password: "password123",
       };
     });
 

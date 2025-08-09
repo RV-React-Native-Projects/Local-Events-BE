@@ -1,5 +1,5 @@
 {
-  "id": "bdd2d514-d0c5-4709-ab09-44b47d7203cc",
+  "id": "18ceebf6-8885-49dd-9a3f-78573e512dec",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -242,6 +242,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "interests": {
+          "name": "interests",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -481,6 +487,12 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "password": {
+          "name": "password",
+          "type": "varchar(524)",
+          "primaryKey": false,
+          "notNull": false
         },
         "image": {
           "name": "image",

@@ -1,11 +1,18 @@
 import { eq, desc, asc, like, and, or } from "drizzle-orm";
 import { db } from "../db";
-import { users, accounts, events, eventParticipants, follows, notifications } from "../schema";
+import {
+  users,
+  accounts,
+  events,
+  eventParticipants,
+  follows,
+  notifications,
+} from "../schema";
 
 // Get all users with pagination
 export const getAllUsers = async (page: number = 1, limit: number = 10) => {
   const offset = (page - 1) * limit;
-  
+
   const allUsers = await db
     .select()
     .from(users)
@@ -13,9 +20,7 @@ export const getAllUsers = async (page: number = 1, limit: number = 10) => {
     .offset(offset)
     .orderBy(desc(users.createdAt));
 
-  const totalCount = await db
-    .select({ count: users.id })
-    .from(users);
+  const totalCount = await db.select({ count: users.id }).from(users);
 
   return {
     users: allUsers,
@@ -23,27 +28,21 @@ export const getAllUsers = async (page: number = 1, limit: number = 10) => {
       page,
       limit,
       total: totalCount.length,
-      totalPages: Math.ceil(totalCount.length / limit)
-    }
+      totalPages: Math.ceil(totalCount.length / limit),
+    },
   };
 };
 
 // Get user by ID
 export const getUserById = async (userId: string) => {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId));
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
 
   return user;
 };
 
 // Get user by email
 export const getUserByEmail = async (email: string) => {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email));
+  const [user] = await db.select().from(users).where(eq(users.email, email));
 
   return user;
 };
@@ -62,14 +61,12 @@ export const getUserByUsername = async (username: string) => {
 export const createUser = async (userData: {
   name: string;
   email: string;
+  password?: string;
   username?: string;
   bio?: string;
   image?: string;
 }) => {
-  const [user] = await db
-    .insert(users)
-    .values(userData)
-    .returning();
+  const [user] = await db.insert(users).values(userData).returning();
 
   return user;
 };
@@ -105,9 +102,13 @@ export const deleteUser = async (userId: string) => {
 };
 
 // Search users
-export const searchUsers = async (query: string, page: number = 1, limit: number = 10) => {
+export const searchUsers = async (
+  query: string,
+  page: number = 1,
+  limit: number = 10
+) => {
   const offset = (page - 1) * limit;
-  
+
   const searchResults = await db
     .select()
     .from(users)
@@ -160,15 +161,19 @@ export const getUserProfile = async (userId: string) => {
       eventsCreated: userEvents.length,
       eventsParticipated: userParticipations.length,
       followers: followers.length,
-      following: following.length
-    }
+      following: following.length,
+    },
   };
 };
 
 // Get user's events
-export const getUserEvents = async (userId: string, page: number = 1, limit: number = 10) => {
+export const getUserEvents = async (
+  userId: string,
+  page: number = 1,
+  limit: number = 10
+) => {
   const offset = (page - 1) * limit;
-  
+
   const userEvents = await db
     .select()
     .from(events)
@@ -181,13 +186,17 @@ export const getUserEvents = async (userId: string, page: number = 1, limit: num
 };
 
 // Get user's participations
-export const getUserParticipations = async (userId: string, page: number = 1, limit: number = 10) => {
+export const getUserParticipations = async (
+  userId: string,
+  page: number = 1,
+  limit: number = 10
+) => {
   const offset = (page - 1) * limit;
-  
+
   const participations = await db
     .select({
       event: events,
-      joinedAt: eventParticipants.joinedAt
+      joinedAt: eventParticipants.joinedAt,
     })
     .from(eventParticipants)
     .innerJoin(events, eq(eventParticipants.eventId, events.id))
@@ -197,4 +206,4 @@ export const getUserParticipations = async (userId: string, page: number = 1, li
     .orderBy(desc(eventParticipants.joinedAt));
 
   return participations;
-}; 
+};

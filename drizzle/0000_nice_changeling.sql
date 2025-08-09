@@ -28,6 +28,7 @@ CREATE TABLE "events" (
 	"date" timestamp NOT NULL,
 	"location" varchar(255),
 	"organizer_id" uuid,
+	"interests" text[],
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
@@ -56,6 +57,7 @@ CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(100),
 	"email" varchar(255) NOT NULL,
+	"password" varchar(524),
 	"image" varchar(500),
 	"username" varchar(50),
 	"bio" varchar(500),

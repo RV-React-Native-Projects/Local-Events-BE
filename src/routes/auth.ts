@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { PasswordService } from "../utils/crypto";
 import {
   getUserAccount,
   createUserAccount,
@@ -8,6 +9,9 @@ import {
   getUserByProviderAccountId,
 } from "../db/queries/auth";
 import { createUser, getUserByEmail } from "../db/queries/users";
+import { JWTService } from "../utils/jwt";
+import { requireAuth } from "../middleware/auth";
+import "../types/hono";
 
 const auth = new Hono();
 
@@ -33,6 +37,10 @@ const oauthSchema = z.object({
   image: z.string().url().max(500).optional(),
 });
 
+const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+
 // POST /auth/login - User login
 auth.post("/login", zValidator("json", loginSchema), async (c) => {
   try {
@@ -44,16 +52,46 @@ auth.post("/login", zValidator("json", loginSchema), async (c) => {
       return c.json({ success: false, error: "Invalid credentials" }, 401);
     }
 
-    // In a real app, you would verify the password here
-    // For now, we'll just return the user
+    // Check if user has a password (for password-based auth)
+    if (!user.password) {
+      return c.json(
+        {
+          success: false,
+          error: "This account uses OAuth login. Please use Google login.",
+        },
+        400
+      );
+    }
+
+    // Verify password using Web Crypto API
+    const isPasswordValid = await PasswordService.verifyPassword(
+      password,
+      user.password
+    );
+    if (!isPasswordValid) {
+      return c.json({ success: false, error: "Invalid credentials" }, 401);
+    }
+
+    // Generate JWT tokens
+    const tokens = await JWTService.generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      username: user.username || undefined,
+    });
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
+
     return c.json({
       success: true,
       data: {
-        user,
-        token: "mock-jwt-token", // In real app, generate JWT
+        user: userWithoutPassword,
+        ...tokens,
       },
+      message: "Login successful",
     });
   } catch (error) {
+    console.error("Login error:", error);
     return c.json({ success: false, error: "Login failed" }, 500);
   }
 });
@@ -69,25 +107,43 @@ auth.post("/register", zValidator("json", registerSchema), async (c) => {
       return c.json({ success: false, error: "Email already exists" }, 400);
     }
 
-    // Create user (without password for now - you'd hash it in real app)
+    // Hash password
+    const hashedPassword = await PasswordService.hashPassword(
+      userData.password
+    );
+
+    // Create user with hashed password
     const user = await createUser({
       name: userData.name,
       email: userData.email,
+      password: hashedPassword,
       username: userData.username,
       bio: userData.bio,
     });
+
+    // Generate JWT tokens
+    const tokens = await JWTService.generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      username: user.username || undefined,
+    });
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
 
     return c.json(
       {
         success: true,
         data: {
-          user,
-          token: "mock-jwt-token", // In real app, generate JWT
+          user: userWithoutPassword,
+          ...tokens,
         },
+        message: "Registration successful",
       },
       201
     );
   } catch (error) {
+    console.error("Registration error:", error);
     return c.json({ success: false, error: "Registration failed" }, 500);
   }
 });
@@ -104,11 +160,18 @@ auth.post("/oauth", zValidator("json", oauthSchema), async (c) => {
     );
 
     if (existingUserWithAccount) {
+      // Generate JWT tokens for existing OAuth user
+      const tokens = await JWTService.generateTokenPair({
+        userId: existingUserWithAccount.user.id,
+        email: existingUserWithAccount.user.email,
+        username: existingUserWithAccount.user.username || undefined,
+      });
+
       return c.json({
         success: true,
         data: {
           user: existingUserWithAccount.user,
-          token: "mock-jwt-token",
+          ...tokens,
         },
       });
     }
@@ -124,11 +187,18 @@ auth.post("/oauth", zValidator("json", oauthSchema), async (c) => {
         providerAccountId: oauthData.providerAccountId,
       });
 
+      // Generate JWT tokens for linked account
+      const tokens = await JWTService.generateTokenPair({
+        userId: existingUser.id,
+        email: existingUser.email,
+        username: existingUser.username || undefined,
+      });
+
       return c.json({
         success: true,
         data: {
           user: existingUser,
-          token: "mock-jwt-token",
+          ...tokens,
         },
       });
     }
@@ -146,12 +216,19 @@ auth.post("/oauth", zValidator("json", oauthSchema), async (c) => {
       providerAccountId: oauthData.providerAccountId,
     });
 
+    // Generate JWT tokens for new OAuth user
+    const tokens = await JWTService.generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      username: user.username || undefined,
+    });
+
     return c.json(
       {
         success: true,
         data: {
           user,
-          token: "mock-jwt-token",
+          ...tokens,
         },
       },
       201
@@ -164,32 +241,104 @@ auth.post("/oauth", zValidator("json", oauthSchema), async (c) => {
   }
 });
 
-// GET /auth/me - Get current user
-auth.get("/me", async (c) => {
+// POST /auth/refresh - Refresh access token
+auth.post("/refresh", zValidator("json", refreshTokenSchema), async (c) => {
   try {
-    // In a real app, you'd get the user from JWT token
-    // For now, we'll return a mock response
+    const { refreshToken } = c.req.valid("json");
+
+    // Verify refresh token
+    const payload = await JWTService.verifyRefreshToken(refreshToken);
+
+    // Generate new access token
+    const newTokens = await JWTService.generateTokenPair({
+      userId: payload.userId,
+      email: payload.email,
+      username: payload.username,
+    });
+
+    return c.json({
+      success: true,
+      data: newTokens,
+      message: "Token refreshed successfully",
+    });
+  } catch (error) {
+    return c.json(
+      { success: false, error: "Invalid or expired refresh token" },
+      401
+    );
+  }
+});
+
+// GET /auth/me - Get current user
+auth.get("/me", requireAuth, async (c) => {
+  try {
+    const user = c.get("user");
+
+    // Get full user details from database
+    const fullUser = await getUserByEmail(user.email);
+    if (!fullUser) {
+      return c.json({ success: false, error: "User not found" }, 404);
+    }
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = fullUser;
+
     return c.json({
       success: true,
       data: {
-        message: "Get user from JWT token",
+        user: userWithoutPassword,
       },
     });
   } catch (error) {
+    console.error("Get current user error:", error);
     return c.json({ success: false, error: "Failed to get current user" }, 500);
   }
 });
 
-// POST /auth/logout - User logout
-auth.post("/logout", async (c) => {
+// POST /auth/logout - User logout (current session)
+auth.post("/logout", requireAuth, async (c) => {
   try {
-    // In a real app, you'd invalidate the JWT token
+    const user = c.get("user");
+    const authHeader = c.req.header("Authorization");
+    
+    if (!authHeader) {
+      return c.json({ success: false, error: "Authorization header required" }, 401);
+    }
+
+    const accessToken = authHeader.replace("Bearer ", "");
+    
+    // Get refresh token from request body (optional)
+    const body = await c.req.json().catch(() => ({}));
+    const refreshToken = body.refreshToken;
+
+    // Invalidate the specific tokens for this user
+    JWTService.invalidateTokens(user.userId, accessToken, refreshToken);
+
     return c.json({
       success: true,
       message: "Logged out successfully",
     });
   } catch (error) {
+    console.error("Logout error:", error);
     return c.json({ success: false, error: "Logout failed" }, 500);
+  }
+});
+
+// POST /auth/logout-all - Logout from all devices
+auth.post("/logout-all", requireAuth, async (c) => {
+  try {
+    const user = c.get("user");
+
+    // Invalidate all tokens for this user
+    JWTService.invalidateAllUserTokens(user.userId);
+
+    return c.json({
+      success: true,
+      message: "Logged out from all devices successfully",
+    });
+  } catch (error) {
+    console.error("Logout all error:", error);
+    return c.json({ success: false, error: "Logout from all devices failed" }, 500);
   }
 });
 

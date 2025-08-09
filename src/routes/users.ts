@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { requireAuth, optionalAuth } from "../middleware/auth";
+import "../types/hono";
 import {
   getAllUsers,
   getUserById,
@@ -178,85 +180,98 @@ users.get(
 );
 
 // POST /users - Create new user
-users.post("/", zValidator("json", createUserSchema), async (c) => {
-  try {
-    const userData = c.req.valid("json");
+users.post(
+  "/",
+  requireAuth,
+  zValidator("json", createUserSchema),
+  async (c) => {
+    try {
+      const userData = c.req.valid("json");
 
-    // Check if email already exists
-    const existingUser = await getUserByEmail(userData.email);
-    if (existingUser) {
-      return c.json({ success: false, error: "Email already exists" }, 400);
-    }
-
-    // Check if username already exists (if provided)
-    if (userData.username) {
-      const existingUsername = await getUserByUsername(userData.username);
-      if (existingUsername) {
-        return c.json(
-          { success: false, error: "Username already exists" },
-          400
-        );
-      }
-    }
-
-    const user = await createUser(userData);
-
-    return c.json(
-      {
-        success: true,
-        data: user,
-      },
-      201
-    );
-  } catch (error) {
-    return c.json({ success: false, error: "Failed to create user" }, 500);
-  }
-});
-
-// PUT /users/:id - Update user
-users.put("/:id", zValidator("json", updateUserSchema), async (c) => {
-  try {
-    const userId = c.req.param("id");
-    const updateData = c.req.valid("json");
-
-    // Check if user exists
-    const existingUser = await getUserById(userId);
-    if (!existingUser) {
-      return c.json({ success: false, error: "User not found" }, 404);
-    }
-
-    // Check if email already exists (if updating email)
-    if (updateData.email && updateData.email !== existingUser.email) {
-      const emailExists = await getUserByEmail(updateData.email);
-      if (emailExists) {
+      // Check if email already exists
+      const existingUser = await getUserByEmail(userData.email);
+      if (existingUser) {
         return c.json({ success: false, error: "Email already exists" }, 400);
       }
-    }
 
-    // Check if username already exists (if updating username)
-    if (updateData.username && updateData.username !== existingUser.username) {
-      const usernameExists = await getUserByUsername(updateData.username);
-      if (usernameExists) {
-        return c.json(
-          { success: false, error: "Username already exists" },
-          400
-        );
+      // Check if username already exists (if provided)
+      if (userData.username) {
+        const existingUsername = await getUserByUsername(userData.username);
+        if (existingUsername) {
+          return c.json(
+            { success: false, error: "Username already exists" },
+            400
+          );
+        }
       }
+
+      const user = await createUser(userData);
+
+      return c.json(
+        {
+          success: true,
+          data: user,
+        },
+        201
+      );
+    } catch (error) {
+      return c.json({ success: false, error: "Failed to create user" }, 500);
     }
-
-    const updatedUser = await updateUser(userId, updateData);
-
-    return c.json({
-      success: true,
-      data: updatedUser,
-    });
-  } catch (error) {
-    return c.json({ success: false, error: "Failed to update user" }, 500);
   }
-});
+);
+
+// PUT /users/:id - Update user
+users.put(
+  "/:id",
+  requireAuth,
+  zValidator("json", updateUserSchema),
+  async (c) => {
+    try {
+      const userId = c.req.param("id");
+      const updateData = c.req.valid("json");
+
+      // Check if user exists
+      const existingUser = await getUserById(userId);
+      if (!existingUser) {
+        return c.json({ success: false, error: "User not found" }, 404);
+      }
+
+      // Check if email already exists (if updating email)
+      if (updateData.email && updateData.email !== existingUser.email) {
+        const emailExists = await getUserByEmail(updateData.email);
+        if (emailExists) {
+          return c.json({ success: false, error: "Email already exists" }, 400);
+        }
+      }
+
+      // Check if username already exists (if updating username)
+      if (
+        updateData.username &&
+        updateData.username !== existingUser.username
+      ) {
+        const usernameExists = await getUserByUsername(updateData.username);
+        if (usernameExists) {
+          return c.json(
+            { success: false, error: "Username already exists" },
+            400
+          );
+        }
+      }
+
+      const updatedUser = await updateUser(userId, updateData);
+
+      return c.json({
+        success: true,
+        data: updatedUser,
+      });
+    } catch (error) {
+      return c.json({ success: false, error: "Failed to update user" }, 500);
+    }
+  }
+);
 
 // DELETE /users/:id - Delete user
-users.delete("/:id", async (c) => {
+users.delete("/:id", requireAuth, async (c) => {
   try {
     const userId = c.req.param("id");
 
